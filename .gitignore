@@ -1,0 +1,37 @@
+# Datasets, weights, and run outputs are not tracked
+data/
+weights/
+runs/
+experiments/
+results/
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Cached predictions and analysis artifacts
+*.jsonl
+*.npz
+*.npy
+
+# Generated figures / tables
+paper/
+figures/
+*.pdf
+*.png
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

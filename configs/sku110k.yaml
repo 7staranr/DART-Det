@@ -1,0 +1,8 @@
+# SKU-110K for ultralytics training (single class, txt split lists)
+path: ./data/SKU110K_fixed
+train: train.txt
+val: val.txt
+test: test.txt
+
+names:
+  0: object

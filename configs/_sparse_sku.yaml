@@ -1,0 +1,5 @@
+path: .
+val: ./data/_sparse_sku.txt
+train: ./data/_sparse_sku.txt
+names:
+  0: object

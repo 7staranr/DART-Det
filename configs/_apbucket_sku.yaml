@@ -1,0 +1,5 @@
+path: .
+val: ./data/SKU110K_fixed/bucket_ge300.txt
+train: ./data/SKU110K_fixed/bucket_ge300.txt
+names:
+  0: object

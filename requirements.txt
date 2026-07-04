@@ -1,0 +1,16 @@
+# Detectors (a recent Ultralytics release with YOLO26 support)
+ultralytics
+torch
+torchvision
+
+# Numerics and statistics
+numpy
+scipy
+pandas
+statsmodels
+
+# I/O and plotting
+matplotlib
+opencv-python
+Pillow
+PyYAML
