@@ -95,8 +95,10 @@ configs/
   dota.yaml, _apbucket_*.yaml, _sparse_*.yaml     Ultralytics data configs
 
 data/splits/                                      the density splits themselves
-  SKU110K_fixed/bucket_{50-100,100-150,150-300,ge300}.txt, dense_test.txt
-  VisDrone2019-DET-val/bucket_*.txt, dense_val.txt
+  SKU110K_fixed/       bucket_{50-100,100-150,150-300,ge300}.txt (101/1792/
+                       1004/30 images) and dense_test.txt (1034)
+  VisDrone2019-DET-val/bucket_{50-100,100-150,150-300}.txt (248/81/27)
+                       and dense.txt (30)
 
 results/buckets/                                  per-bucket recall/precision
   wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      tables (54 CSVs) that every
