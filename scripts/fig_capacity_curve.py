@@ -71,6 +71,7 @@ ax.legend(fontsize=8.5, loc="lower right")
 ax.grid(alpha=0.3)
 plt.tight_layout()
 out = os.path.join(ROOT, "paper", "figures", "fig_capacity_curve.pdf")
+os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
 plt.savefig(out, bbox_inches="tight")
 print("wrote", out)
 for lbl, ys, _, _ in curves:

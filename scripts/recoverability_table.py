@@ -6,7 +6,19 @@ import csv
 import os
 ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-EXP = os.path.join(ROOT, "experiments")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# results/ is what the release ships; experiments/ is the authors' working tree
+# (gitignored). Try the shipped location first so this runs on a clean clone.
+_ROOTS = [os.path.join(ROOT, "results", "buckets"), os.path.join(ROOT, "experiments")]
+
+
+def _find(rel):
+    rel = rel.replace("\\", os.sep).replace("/", os.sep)
+    for base in _ROOTS:
+        p = os.path.join(base, rel)
+        if os.path.exists(p):
+            return p
+    return os.path.join(_ROOTS[0], rel)
 ROWS = [
     ("YOLO26-s", "VisDrone", "soft", r"wp1_ft\visdrone_ft_s_buckets.csv"),
     ("YOLO26-n", "SKU-110K", "soft", r"wp1_sku\sku_test_ft_buckets.csv"),
@@ -28,7 +40,7 @@ def getrow(path, bucket):
 print(f"{'detector':>10} {'dataset':>9} {'type':>5} {'bucket':>9} {'n':>4} "
       f"{'M':>6} {'R@300':>6} {'R@1000':>7} {'rel_rec':>7} DABA?")
 for det, ds, typ, fn in ROWS:
-    path = os.path.join(EXP, fn)
+    path = _find(fn)
     if not os.path.exists(path):
         print(f"{det:>10} {ds:>9}  MISSING {fn}")
         continue

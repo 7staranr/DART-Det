@@ -53,5 +53,6 @@ ax.text(5.5, 0.12, r"diagnose $\;\longrightarrow\;$ decompose $\;\longrightarrow
         ha="center", fontsize=10.5, style="italic", color="#444444")
 
 plt.tight_layout()
+os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
 plt.savefig(OUT, bbox_inches="tight")
 print("wrote", OUT)

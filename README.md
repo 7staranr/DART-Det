@@ -10,7 +10,7 @@ This repository contains the diagnostic protocol, the density-stratified evaluat
 pip install -r requirements.txt
 ```
 
-Python 3.10+. The detectors run on a recent Ultralytics release with YOLO26 support (`ultralytics`), PyTorch with CUDA, plus `numpy`, `scipy`, `pandas`, `statsmodels` (image-clustered regression), `matplotlib`, `opencv-python`, and `Pillow`. A single 10–20 GB GPU is sufficient for every finetune; all analysis is CPU-only and reads cached predictions.
+Python 3.11+. The detectors run on a recent Ultralytics release with YOLO26 support (`ultralytics`), PyTorch with CUDA, plus `numpy`, `scipy`, `pandas`, `statsmodels` (image-clustered regression), `matplotlib`, `opencv-python`, and `Pillow`. A single 10–20 GB GPU is sufficient for every finetune; all analysis is CPU-only and reads cached predictions.
 
 Set the workspace root once (defaults to the repository directory):
 
@@ -100,16 +100,26 @@ data/splits/                                      the density splits themselves
   VisDrone2019-DET-val/bucket_{50-100,100-150,150-300}.txt (248/81/27)
                        and dense.txt (30)
 
-results/buckets/                                  per-bucket recall/precision
-  wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      tables (54 CSVs) that every
-                                                  figure and table reduces to
+results/buckets/                                  per-bucket recall tables
+  wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      (54 CSVs)
 results/per_image/                                per-image matched@K, cache
   wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      depth and ndet@conf (54 CSVs)
+results/per_gt/wp1_ft/                            per-ground-truth outcomes:
+                                                  area, max_iou_nbr, nbr_count,
+                                                  rank, m300, m1000 (7 CSVs) --
+                                                  the input to diag_glmm.py and
+                                                  wp5_mcnemar_clustered.py
+results/masking/wp2_mask/                         context-masking probe records
+                                                  (dense + placebo arms)
 ```
 
-`data/splits/`, `results/buckets/` and `results/per_image/` are checked in, so
-the density stratification and every per-bucket and per-image number in the
-paper can be inspected — and the budget-policy analyses re-run — without
+Header note: the 11 `results/buckets/wp1_pilot/*.csv` are from the earlier
+COCO-pretrained pass and use `AR@k` column names; the 43 finetune tables use
+`R@k`. Readers keying on `R@300` should skip or rename the pilot files.
+
+`data/splits/` and the four `results/` trees are checked in, so the density
+stratification and every per-bucket, per-image and per-ground-truth number in
+the paper can be inspected — and the budget-policy analyses re-run — without
 regenerating anything:
 
 ```bash
@@ -182,18 +192,18 @@ python scripts/train_rtdetr_visdrone.py              # hard query budget
 #    or call the stages directly:
 python scripts/wp1_infer.py --model runs/<run>/weights/best.pt \
     --list data/VisDrone2019-DET-val/val.txt --out experiments/preds_ft_n.jsonl
-python scripts/wp1_eval.py --dataset visdrone --gt data/VisDrone2019-DET-val/labels \
+python scripts/wp1_eval.py --dataset visdrone --gt data/VisDrone2019-DET-val/annotations \
     --preds experiments/preds_ft_n.jsonl --out-prefix experiments/ft_n
 python scripts/wp1_slot_occupant.py --dataset visdrone \
-    --gt data/VisDrone2019-DET-val/labels --preds experiments/preds_ft_n.jsonl
+    --gt data/VisDrone2019-DET-val/annotations --preds experiments/preds_ft_n.jsonl
 python scripts/wp1_local_density.py --dataset visdrone \
-    --gt data/VisDrone2019-DET-val/labels --preds experiments/preds_ft_n.jsonl \
+    --gt data/VisDrone2019-DET-val/annotations --preds experiments/preds_ft_n.jsonl \
     --out-prefix experiments/ft_n          # emits ft_n_per_gt.csv
 python scripts/diag_glmm.py --per-gt experiments/ft_n_per_gt.csv
 
 # 3. causal context-masking intervention
 python scripts/wp2_mask_intervention.py --model runs/<run>/weights/best.pt \
-    --gt data/VisDrone2019-DET-val/labels --images data/VisDrone2019-DET-val/images \
+    --gt data/VisDrone2019-DET-val/annotations --images data/VisDrone2019-DET-val/images \
     --out experiments/mask.json
 
 # 4. budget repair (DABA) + AP, precision, recoverability

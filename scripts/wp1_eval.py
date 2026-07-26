@@ -69,6 +69,12 @@ def load_visdrone_gt(ann_dir):
         out[fn[:-4]] = {"gt": np.array(gt, dtype=np.float32).reshape(-1, 4),
                         "gt_cls": np.array(cls, dtype=np.int32),
                         "ignore": np.array(ign, dtype=np.float32).reshape(-1, 4)}
+    if out and not any(len(v["gt"]) for v in out.values()):
+        raise SystemExit(
+            f"{ann_dir}: parsed {len(out)} files but zero boxes. This loader\n"
+            "expects the comma-separated VisDrone *annotations* format\n"
+            "(x,y,w,h,score,category,...), not the space-separated YOLO\n"
+            "labels/ format. Pass --gt <root>/annotations.")
     return out
 
 

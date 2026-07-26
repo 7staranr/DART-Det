@@ -10,7 +10,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-EXP = os.path.join(ROOT, "experiments")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# results/ is what the release ships; experiments/ is the authors' working tree
+# (gitignored). Try the shipped location first so this runs on a clean clone.
+_ROOTS = [os.path.join(ROOT, "results", "buckets"), os.path.join(ROOT, "experiments")]
+
+
+def _find(rel):
+    rel = rel.replace("\\", os.sep).replace("/", os.sep)
+    for base in _ROOTS:
+        p = os.path.join(base, rel)
+        if os.path.exists(p):
+            return p
+    return os.path.join(_ROOTS[0], rel)
 BUCKETS = ["<50", "50-100", "100-150", "150-300", ">=300"]
 XPOS = [25, 75, 125, 225, 400]
 SRC = [
@@ -30,7 +42,7 @@ def load(path):
 
 fig, ax = plt.subplots(figsize=(6.2, 4.2))
 for name, fn, st, c in SRC:
-    d = load(os.path.join(EXP, fn))
+    d = load(_find(fn))
     xs, ys = [], []
     for b, x in zip(BUCKETS, XPOS):
         if b in d and int(d[b]["n_images"]) >= 3:
@@ -46,9 +58,10 @@ ax.legend(fontsize=9)
 ax.grid(alpha=0.3)
 plt.tight_layout()
 out = os.path.join(ROOT, "paper", "figures", "fig_recoverable_mass.pdf")
+os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
 plt.savefig(out, bbox_inches="tight")
 print("wrote", out)
 for name, fn, _, _ in SRC:
-    d = load(os.path.join(EXP, fn))
+    d = load(_find(fn))
     print(name, [(b, round(float(d[b]["R@1000"]) - float(d[b]["R@300"]), 3))
                  for b in BUCKETS if b in d and int(d[b]["n_images"]) >= 3])
