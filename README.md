@@ -62,7 +62,7 @@ scripts/
 
   # stage 4 - budget repair (DABA) and its evaluation
   wp4_budget_policy.py       DABA: density-to-budget allocation (the repair)
-  wp4_gate_probe.py          pre-registered decision-gate probe (no training)
+  wp4_gate_probe.py          pre-specified decision-gate probe (no training)
   wp4_ap_eval.py             does relaxing the budget raise or lower AP?
   wp4_ap_per_bucket.py       per-density-bucket AP vs budget
   wp4_ap_bootstrap.py        image-bootstrap CI on the dense-subset AP gain
