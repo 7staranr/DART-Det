@@ -66,6 +66,8 @@ scripts/
   wp4_ap_eval.py             does relaxing the budget raise or lower AP?
   wp4_ap_per_bucket.py       per-density-bucket AP vs budget
   wp4_ap_bootstrap.py        image-bootstrap CI on the dense-subset AP gain
+  daba_gate_ap.py            AP realized by the DABA gate itself (per-image K*)
+  decomp_endpoint_check.py   decomposition robustness to the dense endpoint
   wp4_conf_floor.py          deploy-threshold sensitivity of the recovery
   wp4_latency_bench.py       decode-cost / latency benchmark
   scale_stratified_ap.py     per-object-scale AP (very-tiny ... large)
