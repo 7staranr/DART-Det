@@ -40,14 +40,31 @@ def decomp(e2e, o2m, sparse, dense, tag):
     print(f"     (sum {budget+shared+head:+.4f})")
 
 
-for model, e2ef in [("YOLO26-s", "visdrone_ft_s_buckets.csv"),
-                    ("YOLO26-n", "visdrone_ft_n_buckets.csv")]:
-    e2e = load(e2ef)
-    for o2mf in ["ft_s_o2m_nms05_ag_buckets.csv", "ft_s_o2m_nms05_buckets.csv"]:
-        o2m = load(o2mf)
-        if not o2m:
-            continue
-        print(f"\n=== {model}   reference: {o2mf} ===")
-        decomp(e2e, o2m, "<50", ">=300", "dense endpoint >=300  (n=3, PUBLISHED)")
-        decomp(e2e, o2m, "<50", "150-300", "dense endpoint 150-300 (n=27, admissible)")
-    break  # o2m reference was produced for the -s weights only
+# The one-to-many+NMS reference must be the same one Table 1 is built from --
+# the plain per-scale o2m cache. The class-agnostic NMS variants below are a
+# different matching convention and give a different (larger) shared term, so
+# mixing them in silently makes the decomposition look endpoint-sensitive when
+# it is not.
+for model, e2ef, o2mf in [("YOLO26-s", "visdrone_ft_s_buckets.csv",
+                                       "visdrone_ft_s_o2m_buckets.csv"),
+                          ("YOLO26-n", "visdrone_ft_n_buckets.csv",
+                                       "visdrone_ft_n_o2m_buckets.csv")]:
+    e2e, o2m = load(e2ef), load(o2mf)
+    if not e2e or not o2m:
+        continue
+    print(f"\n=== {model}   reference: {o2mf} ===")
+    decomp(e2e, o2m, "<50", ">=300", "dense endpoint >=300  (n=3, PUBLISHED)")
+    decomp(e2e, o2m, "<50", "150-300", "dense endpoint 150-300 (n=27, admissible)")
+
+# For completeness: the same check against the class-agnostic NMS references,
+# which is what an earlier revision of this script used by mistake.
+print("\n--- sensitivity to the NMS convention of the reference path ---")
+for o2mf in ["ft_s_o2m_nms05_ag_buckets.csv", "ft_s_o2m_nms05_buckets.csv"]:
+    o2m = load(o2mf)
+    if not o2m:
+        continue
+    print(f"\n=== YOLO26-s   reference: {o2mf} ===")
+    decomp(load("visdrone_ft_s_buckets.csv"), o2m, "<50", ">=300",
+           "dense endpoint >=300")
+    decomp(load("visdrone_ft_s_buckets.csv"), o2m, "<50", "150-300",
+           "dense endpoint 150-300")

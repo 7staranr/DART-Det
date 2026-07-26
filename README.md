@@ -103,14 +103,25 @@ data/splits/                                      the density splits themselves
 results/buckets/                                  per-bucket recall/precision
   wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      tables (54 CSVs) that every
                                                   figure and table reduces to
+results/per_image/                                per-image matched@K, cache
+  wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      depth and ndet@conf (54 CSVs)
 ```
 
-`data/splits/` and `results/buckets/` are checked in, so the density
-stratification and every per-bucket number in the paper can be inspected
-without re-running anything. The per-image rank-resolved prediction caches are
+`data/splits/`, `results/buckets/` and `results/per_image/` are checked in, so
+the density stratification and every per-bucket and per-image number in the
+paper can be inspected — and the budget-policy analyses re-run — without
+regenerating anything:
+
+```bash
+python scripts/daba_edge_sweep.py \
+    --per-image results/per_image/wp1_sku/sku_test_ft_per_image.csv
+python scripts/decomp_endpoint_check.py
+```
+
+The per-image rank-resolved prediction *caches* (the raw ranked detections) are
 ~1.1 GB and are **not** checked in; `scripts/wp1_infer.py` regenerates them
-(see "Reproducing the paper" below), after which the analysis scripts
-reproduce the bucket tables above.
+(see "Reproducing the paper" below), after which the analysis scripts reproduce
+the tables above.
 
 The `wp1`–`wp5` prefixes group the scripts by analysis stage: `wp1` = diagnosis, `wp2` = causal masking, `wp3` = assignment dynamics, `wp4` = budget repair, `wp5` = training-time pathology.
 

@@ -6,6 +6,7 @@ data/*
 !data/splits/
 results/*
 !results/buckets/
+!results/per_image/
 weights/
 runs/
 experiments/
