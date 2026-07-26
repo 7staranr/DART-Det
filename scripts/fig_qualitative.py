@@ -11,10 +11,10 @@ import sys
 import cv2
 import numpy as np
 
+ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import wp1_eval as we
 
-ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "paper", "figures")
 GREEN, RED, BLUE = (0, 180, 0), (0, 0, 230), (230, 60, 0)  # BGR
 

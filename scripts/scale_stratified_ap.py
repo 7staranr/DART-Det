@@ -7,11 +7,11 @@ import sys
 
 import numpy as np
 
+ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import wp1_eval as we
 import wp4_ap_bootstrap as ab
 
-ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 EXP = os.path.join(ROOT, "experiments")
 # area (px^2) bins: very-tiny <8^2, tiny 8-16^2, small 16-32^2, medium 32-96^2, large
 BINS = [(0, 64), (64, 256), (256, 1024), (1024, 9216), (9216, 1e12)]

@@ -3,12 +3,12 @@ one-to-many recovery is not an NMS-tuning artifact."""
 import os
 import sys
 
+ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import wp1_eval as we
 import wp4_ap_bootstrap as ab
 import iteration1_tables as it
 
-ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 E = os.path.join(ROOT, "experiments", "wp1_ft")
 vd = we.load_visdrone_gt(os.path.join(ROOT, "data", "VisDrone2019-DET-val", "annotations"))
 e2e = ab.load_preds(os.path.join(E, "preds_visdrone_ft_s.jsonl"))
