@@ -1,9 +1,14 @@
-# Datasets, weights, and run outputs are not tracked
-data/
+# Datasets, weights, and run outputs are not tracked -- except the two
+# artifacts the paper says it releases: the density split lists and the
+# per-bucket recall/precision tables the analyses reduce to.  (A child cannot
+# be re-included under an excluded parent, hence `data/*` rather than `data/`.)
+data/*
+!data/splits/
+results/*
+!results/buckets/
 weights/
 runs/
 experiments/
-results/
 *.pt
 *.pth
 *.onnx

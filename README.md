@@ -93,7 +93,22 @@ scripts/
 configs/
   visdrone.yaml, visdrone_dense.yaml, sku110k.yaml, sku110k_dense.yaml,
   dota.yaml, _apbucket_*.yaml, _sparse_*.yaml     Ultralytics data configs
+
+data/splits/                                      the density splits themselves
+  SKU110K_fixed/bucket_{50-100,100-150,150-300,ge300}.txt, dense_test.txt
+  VisDrone2019-DET-val/bucket_*.txt, dense_val.txt
+
+results/buckets/                                  per-bucket recall/precision
+  wp1_pilot/, wp1_ft/, wp1_sku/, wp1_rtdetr/      tables (54 CSVs) that every
+                                                  figure and table reduces to
 ```
+
+`data/splits/` and `results/buckets/` are checked in, so the density
+stratification and every per-bucket number in the paper can be inspected
+without re-running anything. The per-image rank-resolved prediction caches are
+~1.1 GB and are **not** checked in; `scripts/wp1_infer.py` regenerates them
+(see "Reproducing the paper" below), after which the analysis scripts
+reproduce the bucket tables above.
 
 The `wp1`–`wp5` prefixes group the scripts by analysis stage: `wp1` = diagnosis, `wp2` = causal masking, `wp3` = assignment dynamics, `wp4` = budget repair, `wp5` = training-time pathology.
 

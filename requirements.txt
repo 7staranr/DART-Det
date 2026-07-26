@@ -1,16 +1,26 @@
-# Detectors (a recent Ultralytics release with YOLO26 support)
-ultralytics
-torch
-torchvision
+# Exact environment used for every number reported in the paper.
+# Python 3.11.15.  The Ultralytics banner in the run logs reads:
+#   Ultralytics 8.4.64  Python-3.11.15  torch-2.12.0+cu126
+#
+# Install torch/torchvision from the CUDA 12.6 index first:
+#   pip install torch==2.12.0 torchvision==0.27.0 \
+#       --index-url https://download.pytorch.org/whl/cu126
+# then:
+#   pip install -r requirements.txt
+
+# Detectors (YOLO26 support requires >= 8.4)
+ultralytics==8.4.64
+torch==2.12.0
+torchvision==0.27.0
 
 # Numerics and statistics
-numpy
-scipy
-pandas
-statsmodels
+numpy==2.4.4
+scipy==1.17.1
+pandas==3.0.3
+statsmodels==0.14.6
 
 # I/O and plotting
-matplotlib
-opencv-python
-Pillow
-PyYAML
+matplotlib==3.10.9
+opencv-python==4.13.0.92
+Pillow==12.2.0
+PyYAML==6.0.3
