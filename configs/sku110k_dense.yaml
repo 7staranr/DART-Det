@@ -1,6 +1,6 @@
 path: .
-val: ./data/SKU110K_fixed/dense_test.txt
-train: ./data/SKU110K_fixed/dense_test.txt
+val: data/splits/SKU110K_fixed/dense_test.txt
+train: data/splits/SKU110K_fixed/dense_test.txt
 
 names:
   0: object

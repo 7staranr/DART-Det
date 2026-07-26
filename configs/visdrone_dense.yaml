@@ -1,6 +1,6 @@
 path: .
-val: ./data/VisDrone2019-DET-val/dense.txt
-train: ./data/VisDrone2019-DET-val/dense.txt
+val: data/splits/VisDrone2019-DET-val/dense.txt
+train: data/splits/VisDrone2019-DET-val/dense.txt
 
 names:
   0: pedestrian

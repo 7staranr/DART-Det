@@ -27,8 +27,12 @@ BUCKETS = ["100-150", "150-300", ">=300"]
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--per-image", default=os.path.join(
-        ROOT, "experiments", "wp1_sku", "sku_test_ft_per_image.csv"))
+    # default to the table this repo ships, so it runs against a clean clone
+    _shipped = os.path.join(ROOT, "results", "per_image", "wp1_sku",
+                            "sku_test_ft_per_image.csv")
+    ap.add_argument("--per-image", default=_shipped if os.path.exists(_shipped)
+                    else os.path.join(ROOT, "experiments", "wp1_sku",
+                                      "sku_test_ft_per_image.csv"))
     ap.add_argument("--conf", type=float, default=0.1,
                     help="score threshold defining the density proxy n")
     ap.add_argument("--buckets", nargs="*", default=BUCKETS)

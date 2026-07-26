@@ -12,13 +12,20 @@ the same decomposition with the 150-300 bucket (n=27) as the dense endpoint.
 """
 import csv, os, sys
 sys.stdout.reconfigure(encoding='utf-8')
-E = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                 "experiments", "wp1_ft")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# results/buckets/wp1_ft is what the release ships; experiments/wp1_ft is the
+# authors' working tree (excluded by .gitignore). Try the shipped path first so
+# this runs against a clean clone.
+SEARCH = [os.path.join(ROOT, "results", "buckets", "wp1_ft"),
+          os.path.join(ROOT, "experiments", "wp1_ft")]
 
 
 def load(f):
-    p = os.path.join(E, f)
-    if not os.path.exists(p):
+    for d in SEARCH:
+        p = os.path.join(d, f)
+        if os.path.exists(p):
+            break
+    else:
         return None
     return {r["bucket"]: r for r in csv.DictReader(open(p, encoding="utf-8"))}
 

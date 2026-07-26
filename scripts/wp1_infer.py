@@ -54,8 +54,15 @@ def main():
             # head module attr drives the e2e topk
             model.model.model[-1].max_det = args.max_det
     if args.list:
+        # The shipped split lists under data/splits/ are DART_ROOT-relative, so
+        # resolve them against the repo root (or $DART_ROOT) rather than the cwd.
+        root = os.environ.get("DART_ROOT") or os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))
         with open(args.list, "r", encoding="utf-8") as f:
-            img_files = sorted(ln.strip() for ln in f if ln.strip())
+            img_files = sorted(
+                ln.strip() if os.path.isabs(ln.strip())
+                else os.path.join(root, ln.strip())
+                for ln in f if ln.strip())
     else:
         img_files = sorted(
             os.path.join(args.images, f)
