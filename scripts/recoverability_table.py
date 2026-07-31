@@ -6,7 +6,6 @@ import csv
 import os
 ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # results/ is what the release ships; experiments/ is the authors' working tree
 # (gitignored). Try the shipped location first so this runs on a clean clone.
 _ROOTS = [os.path.join(ROOT, "results", "buckets"), os.path.join(ROOT, "experiments")]

@@ -13,6 +13,21 @@ import numpy as np
 
 ROOT = os.environ.get("DART_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIG = os.path.join(ROOT, "paper", "figures")
+
+# results/ is what the release ships; experiments/ is the authors' working tree
+# (gitignored), so resolve against the shipped tables first on a clean clone.
+_DATA_ROOTS = [os.path.join(ROOT, "results", "buckets"),
+               os.path.join(ROOT, "experiments")]
+
+
+def _find(*parts):
+    rel = os.path.join(*parts)
+    for base in _DATA_ROOTS:
+        q = os.path.join(base, rel)
+        if os.path.exists(q):
+            return q
+    return os.path.join(_DATA_ROOTS[0], rel)
+
 os.makedirs(FIG, exist_ok=True)
 plt.rcParams.update({"font.size": 11, "axes.grid": True, "grid.alpha": 0.3,
                      "figure.dpi": 150})
@@ -28,11 +43,11 @@ def load_buckets(path):
 # ---- Fig 2: recall-density curves (finetuned weights) ----
 def fig_recall_density():
     srcs = [
-        ("VisDrone yolo26n", os.path.join(ROOT, "experiments", "wp1_ft",
+        ("VisDrone yolo26n", _find("wp1_ft",
          "visdrone_ft_n_buckets.csv")),
-        ("VisDrone yolo26s", os.path.join(ROOT, "experiments", "wp1_ft",
+        ("VisDrone yolo26s", _find("wp1_ft",
          "visdrone_ft_s_buckets.csv")),
-        ("SKU-110K yolo26n", os.path.join(ROOT, "experiments", "wp1_sku",
+        ("SKU-110K yolo26n", _find("wp1_sku",
          "sku_test_ft_buckets.csv")),
     ]
     fig, ax = plt.subplots(figsize=(5.2, 3.6))
@@ -166,11 +181,11 @@ def fig_teaser():
     """2-panel teaser: recall-density decline + slot-composition transition."""
     fig, (a, b) = plt.subplots(1, 2, figsize=(8.6, 3.3))
     srcs = [
-        ("VisDrone -n", os.path.join(ROOT, "experiments", "wp1_ft",
+        ("VisDrone -n", _find("wp1_ft",
          "visdrone_ft_n_buckets.csv")),
-        ("VisDrone -s", os.path.join(ROOT, "experiments", "wp1_ft",
+        ("VisDrone -s", _find("wp1_ft",
          "visdrone_ft_s_buckets.csv")),
-        ("SKU-110K -n", os.path.join(ROOT, "experiments", "wp1_sku",
+        ("SKU-110K -n", _find("wp1_sku",
          "sku_test_ft_buckets.csv")),
     ]
     for name, p in srcs:

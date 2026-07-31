@@ -113,9 +113,10 @@ results/masking/wp2_mask/                         context-masking probe records
                                                   (dense + placebo arms)
 ```
 
-Header note: the 11 `results/buckets/wp1_pilot/*.csv` are from the earlier
-COCO-pretrained pass and use `AR@k` column names; the 43 finetune tables use
-`R@k`. Readers keying on `R@300` should skip or rename the pilot files.
+Header note: 11 of the 54 bucket tables use `AR@k` column names (the earlier
+COCO-pretrained pass) and 43 use `R@k`. The split is by table, not by
+directory: `results/buckets/wp1_pilot/` holds 19 files, 8 of which (`*_deploy`, `crowdhuman_yolo26n_{fbox,vbox}`) already carry the `R@k`
+columns. Key on whichever prefix the header actually has.
 
 `data/splits/` and the four `results/` trees are checked in, so the density
 stratification and every per-bucket, per-image and per-ground-truth number in
@@ -168,7 +169,7 @@ any script with `--help` for its full options.
 Set `DART_ROOT` first and place the datasets under `DART_ROOT/data` (see Data
 sources). Paths below are illustrative placeholders. The PowerShell drivers wire
 the full per-model sequence (infer -> density-stratified eval -> plots); the
-steps below show the underlying interface, and every script accepts `--help`.
+steps below show the underlying interface, and the argument-taking scripts accept `--help`.
 
 ```
 # 0. datasets -> YOLO format + density-stratified val lists
@@ -178,8 +179,9 @@ python scripts/prep_dota.py
 python scripts/make_dense_val.py
 python scripts/gt_density_stats.py
 
-# 1. finetune the detectors. Primary VisDrone/SKU results use two seeds:
-#    the *_seed / *_v2 variants take the seed as argv; others fix seed=0.
+# 1. finetune the detectors. Only the VisDrone YOLO26-n and SKU-110K YOLO26-n
+#    finetunes (and the two wp5 assigner variants) have a second seed; the
+#    *_seed / *_v2 variants take the seed as argv, others fix seed=0.
 python scripts/train_visdrone_n.py                   # YOLO26-n on VisDrone
 python scripts/train_sku_n_seed.py 0                 # YOLO26-n on SKU-110K, seed 0
 python scripts/train_dota.py                         # 2nd aerial domain
@@ -215,7 +217,12 @@ python scripts/recoverability_table.py
 # 5. training-time pathology + negative result (two seeds)
 python scripts/wp5_pathology_scan.py
 python scripts/wp5_train_v2.py 0 0                    # seed 0, device 0
-python scripts/wp5_mcnemar_clustered.py --pairs experiments/mcnemar_pairs.jsonl
+#    --pairs takes (baseline, treatment) per-GT tables, two per seed:
+python scripts/wp5_mcnemar_clustered.py --pairs \
+    results/per_gt/wp1_ft/visdrone_ft_n_local_per_gt.csv \
+    results/per_gt/wp1_ft/visdrone_wp5v2_local_per_gt.csv \
+    results/per_gt/wp1_ft/visdrone_ft_n_s1_local_per_gt.csv \
+    results/per_gt/wp1_ft/visdrone_wp5v2_s1_local_per_gt.csv
 ```
 
 ## Figures and statistics
@@ -244,7 +251,7 @@ All datasets are public and used under their own licenses; download them into `D
 - Recall-at-budget `R@K` is the fraction of ground-truth objects matched (class-agnostic, IoU >= 0.5 unless stated) within the top-K ranked predictions the deployed head emits. It is read at any budget by offline truncation of a single depth-1000 cache, which is bit-identical to re-running with that budget because top-K selection is order-preserving and never enters the training loss.
 - The nominal budget is `K_nom = 300`; the effective budget `K_eff` is the number of distinct true positives the kept slots carry, which falls below `K_nom` when duplicates and false positives occupy slots.
 - Evaluation is deploy-faithful: ignore regions are exempted after truncation, not before; matching is greedy in descending confidence at the deployed operating thresholds.
-- Primary VisDrone and SKU-110K numbers are reported over two seeds; the DOTA second-domain and YOLOv10 second-detector results are single-run generalization checks.
+- The VisDrone and SKU-110K *diagnosis* numbers (YOLO26-n) and the SKU-110K *repair* gain are reported over two seeds. The VisDrone repair (YOLO26-s), DOTA, and YOLOv10 results are single-run: only `ft_visdrone_yolo26n_1280`, `ft_sku110k_yolo26n_1024`, `wp5_norphan_yolo26n_1280` and `wp5v2_yolo26n_1280` have `_s1` twins.
 - Every path is relative to `DART_ROOT` (env var; defaults to the repo root). No absolute paths are hard-coded.
 
 ## Citation
