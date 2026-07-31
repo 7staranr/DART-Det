@@ -13,6 +13,7 @@ weights/
 runs/
 experiments/
 *.pt
+!weights_release/*.pt
 *.pth
 *.onnx
 *.engine

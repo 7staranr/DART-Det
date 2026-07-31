@@ -111,7 +111,28 @@ results/per_gt/wp1_ft/                            per-ground-truth outcomes:
                                                   wp5_mcnemar_clustered.py
 results/masking/wp2_mask/                         context-masking probe records
                                                   (dense + placebo arms)
+
+weights_release/                                  the three finetunes carrying
+  visdrone_yolo26n_1280.pt   (5.2 MB, mAP@0.5 0.449)   the primary claims, so the
+  visdrone_yolo26s_1280.pt   (19.4 MB, mAP@0.5 0.530)  cache-dependent analyses
+  sku110k_yolo26n_1024.pt    (5.2 MB, mAP@0.5 0.902)   can be rerun without
+                                                       refinetuning
 ```
+
+### Regenerating the prediction caches
+
+The rank-resolved caches are ~1.1 GB and are not tracked, but the checkpoints
+that produce them are. With the public imagery in place under `DART_ROOT/data`:
+
+```bash
+python scripts/wp1_infer.py --model weights_release/visdrone_yolo26s_1280.pt \
+    --list data/splits/VisDrone2019-DET-val/dense.txt \
+    --out experiments/wp1_ft/preds_visdrone_ft_s.jsonl \
+    --imgsz 1280 --max-det 1000
+```
+
+That is the step every cache-dependent table and figure depends on; the
+analysis scripts read the resulting `.jsonl` directly.
 
 Header note: 11 of the 54 bucket tables use `AR@k` column names (the earlier
 COCO-pretrained pass) and 43 use `R@k`. The split is by table, not by
