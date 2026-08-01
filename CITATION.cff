@@ -1,0 +1,53 @@
+cff-version: 1.2.0
+message: "If you use this software or the released tables, please cite the accompanying manuscript."
+title: "DART-Det: density-adaptive rank-truncation diagnosis and training-free budget repair for NMS-free detection"
+abstract: >-
+  Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free
+  detectors. Treats the fixed top-K stage as a rate-constrained ranked-selection
+  channel, names the loss Rank-Truncation Information Loss (RTIL), decomposes the
+  density-stratified recall drop into a recoverable budget-truncation term, an
+  irreducible shared-difficulty term and a small one-to-one-head residual, and
+  repairs the recoverable term at inference with DABA (Density-Adaptive Budget
+  Allocation), a training-free density-to-budget rule.
+type: software
+license: MIT
+repository-code: "https://github.com/7staranr/DART-Det"
+keywords:
+  - object detection
+  - NMS-free detection
+  - fixed-budget set prediction
+  - rank truncation
+  - dense object detection
+  - density-adaptive inference
+authors:
+  - family-names: Yang
+    given-names: Jixiang
+    orcid: "https://orcid.org/0009-0002-7291-8366"
+    affiliation: "School of Information Science and Technology, Qingdao University of Science and Technology, Qingdao 266061, China"
+  - family-names: Yi
+    given-names: Junfei
+    orcid: "https://orcid.org/0009-0008-0063-4085"
+    affiliation: "Department of Computer Science, The University of Manchester, Manchester M13 9PL, U.K."
+  - family-names: Li
+    given-names: Jinhan
+    affiliation: "School of Information Science and Technology, Qingdao University of Science and Technology, Qingdao 266061, China"
+  - family-names: Ma
+    given-names: Shengjie
+    email: mashengjie@qust.edu.cn
+    affiliation: "School of Information Science and Technology, Qingdao University of Science and Technology, Qingdao 266061, China"
+preferred-citation:
+  type: manuscript
+  title: "DART: Diagnosing and Repairing Rank-Truncation Information Loss in Fixed-Budget End-to-End Detection"
+  year: 2026
+  notes: "Manuscript under review; this entry will be updated with the journal reference once the paper is published."
+  authors:
+    - family-names: Yang
+      given-names: Jixiang
+      orcid: "https://orcid.org/0009-0002-7291-8366"
+    - family-names: Yi
+      given-names: Junfei
+      orcid: "https://orcid.org/0009-0008-0063-4085"
+    - family-names: Li
+      given-names: Jinhan
+    - family-names: Ma
+      given-names: Shengjie
