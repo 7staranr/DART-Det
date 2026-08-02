@@ -1,8 +1,8 @@
 # DART-Det — Density-Adaptive Rank-Truncation for NMS-free detection
 
-Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free detectors. An NMS-free head keeps only the top-K ranked predictions per image; as scene density grows, true positives the network has already scored are pushed past rank K and discarded before any confidence thresholding. We treat this fixed top-K stage as a rate-constrained ranked-selection channel whose effective capacity K_eff collapses below the nominal budget K_nom = 300, name the loss Rank-Truncation Information Loss (RTIL = R@M − R@K), decompose the density-stratified recall drop into a recoverable budget-truncation term, an irreducible shared-difficulty term, and a small one-to-one-head residual, and repair the recoverable term at inference with DABA (Density-Adaptive Budget Allocation), a training-free density-to-budget rule. A soft-versus-hard transfer law predicts recoverability from detector structure: soft top-K heads that cache a rank tail (M > K, e.g. YOLO26, YOLOv10) are recoverable; hard fixed-query budgets (RT-DETR, M ≡ K) are not.
+Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free detectors. An NMS-free head keeps only the top-K ranked predictions per image; as scene density grows, true positives the network has already scored are pushed past rank K and discarded before any confidence thresholding. We treat this fixed top-K stage as a rate-constrained ranked-selection channel whose effective capacity K_eff collapses below the nominal budget K_nom = 300, name the loss Rank-Truncation Information Loss (RTIL = R@M − R@K), decompose the density-stratified recall drop into a recoverable budget-truncation term, a shared-difficulty term that the one-to-many reference path also fails to recover at the cached rank depth, and a small one-to-one-head residual, and repair the recoverable term at inference with DABA (Density-Adaptive Budget Allocation), a training-free density-to-budget rule. A soft-versus-hard transfer law predicts recoverability from detector structure: soft top-K heads that cache a rank tail (M > K, e.g. YOLO26, YOLOv10) are recoverable; hard fixed-query budgets (RT-DETR, M ≡ K) are not.
 
-This repository contains the diagnostic protocol, the density-stratified evaluation, DABA, and the figure/table generators. It does not ship datasets or weights; both are public and configured through `DART_ROOT` (see Notes).
+This repository contains the diagnostic protocol, the density-stratified evaluation, DABA, and the figure/table generators. It does not ship datasets; those are public and configured through `DART_ROOT` (see Notes).
 
 ## Requirements
 
@@ -117,7 +117,30 @@ weights_release/                                  the three finetunes carrying
   visdrone_yolo26s_1280.pt   (19.4 MB, mAP@0.5 0.530)  cache-dependent analyses
   sku110k_yolo26n_1024.pt    (5.2 MB, mAP@0.5 0.902)   can be rerun without
                                                        refinetuning
+
+training_manifest.csv                             what `optimizer=auto` actually
+                                                  resolved to per run, read off
+                                                  the training logs
 ```
+
+### What `optimizer=auto` resolved to
+
+`args.yaml` records `optimizer: auto` and `lr0: 0.01` — the *inputs*, not what
+Ultralytics chose. `training_manifest.csv` records the resolved optimizer and
+effective initial learning rate as printed by the trainer:
+
+| run | optimizer | lr0 |
+|---|---|---|
+| ft_visdrone_yolo26n_1280 | AdamW | 7.14e-4 |
+| ft_visdrone_yolo26s_1280 | AdamW | 7.14e-4 |
+| ft_visdrone_yolov10n_1280 | AdamW | 7.14e-4 |
+| ft_visdrone_rtdetr_l_960 | AdamW | 7.14e-4 |
+| ft_sku110k_yolo26n_1024 (+ `_s1`) | AdamW | 2e-3 |
+| ft_sku_rtdetr_l_1024 | AdamW | 2e-3 |
+| ft_dota_yolo26n_1024 | MuSGD | 0.01 |
+
+`cos_lr: false` throughout, so the schedule is the framework's linear decay, not
+cosine.
 
 ### Regenerating the prediction caches
 

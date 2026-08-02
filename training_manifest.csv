@@ -1,0 +1,9 @@
+run,source_log,resolved_optimizer,resolved_lr0,momentum
+ft_dota_yolo26n_1024,train_dota.log,MuSGD,0.01,0.9
+ft_visdrone_yolo26n_1280,train_n2.log,AdamW,0.000714,0.9
+ft_visdrone_rtdetr_l_960,train_rtdetr.log,AdamW,0.000714,0.9
+ft_sku_rtdetr_l_1024,train_rtdetr_sku.log,AdamW,0.002,0.9
+ft_visdrone_yolo26s_1280,train_s.log,AdamW,0.000714,0.9
+ft_sku110k_yolo26n_1024,train_sku.log,AdamW,0.002,0.9
+ft_sku110k_yolo26n_1024_s1,train_sku_s1.log,AdamW,0.002,0.9
+ft_visdrone_yolov10n_1280,train_yolov10.log,AdamW,0.000714,0.9
