@@ -1,6 +1,8 @@
 """Build the RTIL recoverability table: per detector x dataset,
 the cache depth M, R@300, R@1000, rel_rec, and DABA-applicability, from the
-cached bucket CSVs. Soft top-K heads cache M>K and are recoverable; the hard
+cached bucket CSVs. The inference-time recoverability condition is about the
+cache, not the family label: a head is repairable exactly when it retains an
+accessible rank tail (observed depth > K). Soft top-K heads do; the evaluated
 query budget caches M==K and is not."""
 import csv
 import os
@@ -36,8 +38,11 @@ def getrow(path, bucket):
     return None
 
 
+# "obs.M" is the observed mean number of retained predictions in the bucket,
+# not the configured cache cap: it is bounded by the cap but also by the
+# confidence floor and by how many candidates the image actually yields.
 print(f"{'detector':>10} {'dataset':>9} {'type':>5} {'bucket':>9} {'n':>4} "
-      f"{'M':>6} {'R@300':>6} {'R@1000':>7} {'rel_rec':>7} DABA?")
+      f"{'obs.M':>6} {'R@300':>6} {'R@1000':>7} {'rel_rec':>7} tail?")
 for det, ds, typ, fn in ROWS:
     path = _find(fn)
     if not os.path.exists(path):
@@ -49,7 +54,12 @@ for det, ds, typ, fn in ROWS:
     if use is None:
         continue
     M = float(use["mean_cache_depth"])
-    daba = "yes" if typ == "soft" else "no"
+    # Decide from the measured cache, not from the family label: DABA can act
+    # only where an accessible rank tail exists beyond the deployed budget.
+    # mean_cache_depth is an observed mean, not the configured cap, so it is
+    # reported as such; rel_rec == 0 means nothing below rank K to reopen.
+    tail = M > 300.0 + 1e-9 and float(use["rel_rec"]) > 0.0
+    daba = "yes" if tail else "no"
     print(f"{det:>10} {ds:>9} {typ:>5} {use['bucket']:>9} {use['n_images']:>4} "
           f"{M:>6.0f} {float(use['R@300']):>6.3f} {float(use['R@1000']):>7.3f} "
           f"{float(use['rel_rec']):>7.3f} {daba:>5}")

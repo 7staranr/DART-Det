@@ -1,6 +1,6 @@
 # DART-Det — Density-Adaptive Rank-Truncation for NMS-free detection
 
-Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free detectors. An NMS-free head keeps only the top-K ranked predictions per image; as scene density grows, true positives the network has already scored are pushed past rank K and discarded before any confidence thresholding. We treat this fixed top-K stage as a rate-constrained ranked-selection channel whose effective capacity -- the fraction of objects the budget covers, K_eff/|G| = R@K, not the absolute count K_eff -- collapses as density grows, name the loss Rank-Truncation Information Loss (RTIL = R@M − R@K), decompose the density-stratified recall drop into a recoverable budget-truncation term, a shared-difficulty term that the one-to-many reference path also fails to recover at the cached rank depth, and a small one-to-one-head residual, and repair the recoverable term at inference by raising the decode cap on dense images, a training-free change; a density gate (DABA, Density-Adaptive Budget Allocation) realizes the same gain while spending fewer slots on sparse images. A soft-versus-hard transfer law predicts recoverability from detector structure: soft top-K heads that cache a rank tail (M > K, e.g. YOLO26, YOLOv10) are recoverable; hard fixed-query budgets (RT-DETR, M ≡ K) are not.
+Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free detectors. An NMS-free head keeps only the top-K ranked predictions per image; as scene density grows, true positives the network has already scored are pushed past rank K and discarded before any confidence thresholding. We treat this fixed top-K stage as a rate-constrained ranked-selection channel whose effective capacity -- the fraction of objects the budget covers, K_eff/|G| = R@K, not the absolute count K_eff -- collapses as density grows, name the loss Rank-Truncation Information Loss (RTIL = R@M − R@K), decompose the density-stratified recall drop into a recoverable budget-truncation term, a shared-difficulty term that the one-to-many reference path also fails to recover at the cached rank depth, and a small residual between the two evaluated decode paths, and repair the recoverable term at inference by raising the decode cap on dense images, a training-free change; a density gate (DABA, Density-Adaptive Budget Allocation) reaches a numerically similar gain while returning a smaller set on sparse images (see Notes for the exact comparison, which is not an accuracy advantage). That third term is a net path difference rather than a head-only quantity: the two paths differ in head, supervision, assignment, calibration, NMS and matching convention, so its small size does not bound the one-to-one head's isolated contribution. An inference-time recoverability condition predicts recoverability from detector structure: soft top-K heads that cache a rank tail (M > K, e.g. YOLO26, YOLOv10) are recoverable; hard fixed-query budgets (RT-DETR at its deployed 300-query configuration, M ≡ K) are not.
 
 This repository contains the diagnostic protocol, the density-stratified evaluation, DABA, and the figure/table generators. It does not ship datasets; those are public and configured through `DART_ROOT` (see Notes).
 
@@ -10,7 +10,7 @@ This repository contains the diagnostic protocol, the density-stratified evaluat
 pip install -r requirements.txt
 ```
 
-Python 3.11+. The detectors run on a recent Ultralytics release with YOLO26 support (`ultralytics`), PyTorch with CUDA, plus `numpy`, `scipy`, `pandas`, `statsmodels` (image-clustered regression), `matplotlib`, `opencv-python`, and `Pillow`. A single 10–20 GB GPU is sufficient for every finetune; all analysis is CPU-only and reads cached predictions.
+Python 3.11+. The detectors run on a recent Ultralytics release with YOLO26 support (`ultralytics`), PyTorch with CUDA, plus `numpy`, `scipy`, `pandas`, `statsmodels` (image-clustered regression), `matplotlib`, `opencv-python`, and `Pillow`. A single 10–20 GB GPU is sufficient for every finetune. Cache-based evaluation and statistical reduction are CPU-only; finetuning, prediction-cache generation, the masking intervention, assignment instrumentation, and the latency benchmark all execute the detector and normally need a GPU.
 
 Set the workspace root once (defaults to the repository directory):
 
@@ -164,13 +164,24 @@ columns. Key on whichever prefix the header actually has.
 
 `data/splits/` and the four `results/` trees are checked in, so the density
 stratification and every per-bucket, per-image and per-ground-truth number in
-the paper can be inspected — and the budget-policy analyses re-run — without
-regenerating anything:
+the paper can be inspected without regenerating anything.
+
+What a clean clone can actually run, by level:
+
+| Level | Needs | Examples |
+|---|---|---|
+| 1. CSV reduction | nothing but this repo | `decomp_endpoint_check.py`, `recoverability_table.py`, `daba_edge_sweep.py --per-image results/per_image/...` |
+| 2. Cache-consuming analysis | the public imagery + a released checkpoint, then `wp1_infer.py` to rebuild the ~1.1 GB JSONL caches | `wp1_eval.py`, `wp4_budget_policy.py`, `wp4_ap_bootstrap.py`, `wp4_conf_floor.py`, `daba_gate_ap.py`, `lambda_bracket.py` |
+| 3. Re-training | a GPU; only three checkpoints are deposited (VisDrone YOLO26-n/s, SKU-110K YOLO26-n), so DOTA, YOLOv10, RT-DETR and the second seeds must be retrained from the `train_*.py` scripts | `train_dota.py`, `train_yolov10_visdrone.py`, `train_rtdetr_*.py`, `train_seed1_pair.py` |
+| 4. GPU interventions | a GPU and the detector in the loop | `wp2_mask_intervention.py`, `wp3_assign_dynamics.py`, `wp4_latency_bench.py` |
+
+Level 1 needs no download:
 
 ```bash
 python scripts/daba_edge_sweep.py \
     --per-image results/per_image/wp1_sku/sku_test_ft_per_image.csv
 python scripts/decomp_endpoint_check.py
+python scripts/recoverability_table.py
 ```
 
 The per-image rank-resolved prediction *caches* (the raw ranked detections) are
@@ -182,7 +193,7 @@ The `wp1`–`wp5` prefixes group the scripts by analysis stage: `wp1` = diagnosi
 
 ## DABA in one place
 
-The repair is inference-only. From a single cached forward pass, count detections above a low proxy floor and map the count to a decode budget:
+The repair is inference-only, and it is an *output-selection* policy rather than adaptive computation. Every evaluated image is first decoded to depth M=1000. DABA counts detections above a low proxy floor **on that already-decoded list**, then returns a prefix K*(x). It does not reduce backbone, head, or depth-1000 decode time; what it resizes is the returned detection set:
 
 ```
 n = number of detections with score >= 0.1        # density proxy
@@ -201,10 +212,10 @@ DABA is inference-only. Given a rank-cached prediction file (produced by
 recovered recall:
 
 ```
-python scripts/wp4_budget_policy.py --dataset sku --gt <labels_dir> --preds <preds.jsonl>
+python scripts/wp4_budget_policy.py --dataset sku --gt <SKU110K_fixed/annotations/annotations_test.csv> --preds <preds.jsonl>
 ```
 
-The diagnosis and every analysis script share the same interface: `--dataset`,
+The cache-consuming evaluation scripts share one interface: `--dataset`,
 `--gt` (ground-truth labels), and `--preds` (the cached prediction JSONL). Run
 any script with `--help` for its full options.
 
@@ -253,9 +264,12 @@ python scripts/wp2_mask_intervention.py --model runs/<run>/weights/best.pt \
     --out experiments/mask.json
 
 # 4. budget repair (DABA) + AP, precision, recoverability
-python scripts/wp4_budget_policy.py --dataset sku --gt <labels> --preds <preds.jsonl>
-python scripts/wp4_ap_bootstrap.py --dataset sku --gt <labels> --preds <preds.jsonl> --thr-density 150
-python scripts/wp4_conf_floor.py   --dataset sku --gt <labels> --preds <preds.jsonl>
+# --gt is dataset-specific: VisDrone = the comma-separated annotations dir,
+# SKU-110K = the annotation CSV, DOTA = a YOLO labels dir.
+SKU_GT=data/SKU110K_fixed/annotations/annotations_test.csv
+python scripts/wp4_budget_policy.py --dataset sku --gt $SKU_GT --preds <preds.jsonl>
+python scripts/wp4_ap_bootstrap.py --dataset sku --gt $SKU_GT --preds <preds.jsonl> --thr-density 150
+python scripts/wp4_conf_floor.py   --dataset sku --gt $SKU_GT --preds <preds.jsonl>
 python scripts/recoverability_table.py
 
 # 5. training-time pathology + negative result (two seeds)
@@ -292,7 +306,7 @@ All datasets are public and used under their own licenses; download them into `D
 
 ## Notes
 
-- Recall-at-budget `R@K` is the fraction of ground-truth objects matched (class-agnostic, IoU >= 0.5 unless stated) within the top-K ranked predictions the deployed head emits. It is read at any budget by offline truncation of a single depth-1000 cache, which is bit-identical to re-running with that budget because top-K selection is order-preserving and never enters the training loss.
+- Recall-at-budget `R@K` is the fraction of ground-truth objects matched (class-agnostic, IoU >= 0.5 unless stated) within the top-K ranked predictions the deployed head emits. It is read at any budget by offline truncation of a single depth-1000 cache. Because top-K selection is order-preserving and never enters the training loss, truncating the cache reproduces the ranked prefix that re-running at that budget would emit. The cache stores boxes rounded to 0.1 px and confidences to 4 decimals, so downstream metrics are reproduced to that quantization rather than bit-for-bit.
 - The nominal budget is `K_nom = 300`; the effective budget `K_eff` is the number of distinct true positives the kept slots carry, which falls below `K_nom` when duplicates and false positives occupy slots.
 - Evaluation is deploy-faithful: ignore regions are exempted after truncation, not before; matching is greedy in descending confidence at the deployed operating thresholds.
 - The VisDrone and SKU-110K *diagnosis* numbers (YOLO26-n) and the SKU-110K *repair* gain are reported over two seeds. The VisDrone repair (YOLO26-s), DOTA, and YOLOv10 results are single-run: only `ft_visdrone_yolo26n_1280`, `ft_sku110k_yolo26n_1024`, `wp5_norphan_yolo26n_1280` and `wp5v2_yolo26n_1280` have `_s1` twins.

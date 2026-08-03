@@ -13,7 +13,6 @@ import wp1_eval as we
 import wp4_ap_bootstrap as ab
 
 
-
 def per_image(preds, gt, ca=False):
     """return list of (n_proxy, matched@300, matched@600, matched@1000)."""
     rows = []
@@ -65,12 +64,65 @@ def analyze(rows):
     lam_t2 = val_at(200, mids, a2)   # lambda that puts the 600->1000 crossover at n=200
     print(f"\nImplied cost ratio lambda for t1=100 (300->600 step): {lam_t1:.5f}")
     print(f"Implied cost ratio lambda for t2=200 (600->1000 step): {lam_t2:.5f}")
-    print(f"=> a single low-lambda in [{min(lam_t1,lam_t2):.5f}, {max(lam_t1,lam_t2):.5f}] "
-          f"reproduces the deployed (100,200); both are small (slot cost << miss cost).")
+    # The two steps interpolate to different values, so what this shows is that
+    # one low cost ratio is *consistent with* both deployed edges, not that a
+    # single lambda derives them.
+    print(f"=> the deployed (100,200) is bracketed by lambda in "
+          f"[{min(lam_t1,lam_t2):.5f}, {max(lam_t1,lam_t2):.5f}]; both ends are "
+          f"small, i.e. slot cost << miss cost.")
+
+
+def _need(path, how):
+    """Prediction caches are ~1.1 GB and .gitignore'd, so a clean clone will not
+    have them. Say which command rebuilds the file instead of raising a bare
+    FileNotFoundError from somewhere inside the loader."""
+    if not os.path.exists(path):
+        raise SystemExit(
+            f"ERROR: missing prediction cache\n    {path}\n"
+            f"  This script re-analyses cached predictions; it does not create "
+            f"them.\n  Rebuild it with:\n    {how}\n"
+            f"  (DART_ROOT is currently {ROOT!r}.)")
+    return path
 
 
 if __name__ == "__main__":
-    sku = we.load_sku_gt(os.path.join(ROOT, "data", "SKU110K_fixed", "annotations", "annotations_test.csv"))
-    p = ab.load_preds(os.path.join(ROOT, "experiments", "wp1_sku", "preds_sku_test_ft.jsonl"))
-    print("=== SKU-110K test (proxy n vs marginal recovered-per-slot) ===")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--visdrone-gt",
+                    default=os.path.join(ROOT, "data", "VisDrone2019-DET-val", "annotations"))
+    ap.add_argument("--visdrone-preds",
+                    default=os.path.join(ROOT, "experiments", "wp1_ft", "preds_visdrone_ft_s.jsonl"))
+    ap.add_argument("--sku-gt",
+                    default=os.path.join(ROOT, "data", "SKU110K_fixed", "annotations", "annotations_test.csv"))
+    ap.add_argument("--sku-preds",
+                    default=os.path.join(ROOT, "experiments", "wp1_sku", "preds_sku_test_ft.jsonl"))
+    ap.add_argument("--skip-sku", action="store_true",
+                    help="report the calibration split only")
+    args = ap.parse_args()
+
+    # VisDrone-val FIRST: this is the split on which (t1,t2)=(100,200) were
+    # chosen, so it is the split the bracket must be read on. The marginal
+    # recovered-per-slot profile is monotone here, so the single-crossover
+    # reading of the three-way cost model is valid; on SKU-110K it is not,
+    # which is why the SKU numbers below are a cross-domain check rather than
+    # the calibration.
+    _need(args.visdrone_preds,
+          "python scripts/wp1_infer.py --weights weights_release/visdrone_yolo26s_1280.pt "
+          "--images <VisDrone-val images> --imgsz 1280 --out "
+          "$DART_ROOT/experiments/wp1_ft/preds_visdrone_ft_s.jsonl")
+    vg = we.load_visdrone_gt(args.visdrone_gt)
+    vp = ab.load_preds(args.visdrone_preds)
+    print("=== VisDrone-val, YOLO26-s (CALIBRATION split) ===")
+    analyze(per_image(vp, vg, ca=True))
+    print()
+
+    if args.skip_sku:
+        raise SystemExit(0)
+    _need(args.sku_preds,
+          "python scripts/wp1_infer.py --weights weights_release/sku110k_yolo26n_1024.pt "
+          "--images <SKU-110K test images> --imgsz 1024 --out "
+          "$DART_ROOT/experiments/wp1_sku/preds_sku_test_ft.jsonl")
+    sku = we.load_sku_gt(args.sku_gt)
+    p = ab.load_preds(args.sku_preds)
+    print("=== SKU-110K test (cross-domain check; profile is NON-monotone here) ===")
     analyze(per_image(p, sku, ca=False))

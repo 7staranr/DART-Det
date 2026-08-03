@@ -1,0 +1,46 @@
+name: smoke
+
+# Minimal guard, not a test suite. It exists because two classes of breakage
+# have shipped from this repo before and neither is visible by reading a diff:
+# a syntax error in a script nobody re-ran, and an absolute path from the
+# authors' workstation leaking back into a file. Both are cheap to catch here.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Every script parses
+        run: python -m compileall -q scripts
+
+      - name: No local paths or pre-release codenames in tracked text
+        run: |
+          if git grep -nEI '([A-Za-z]:\\|/home/[a-z]|/Users/[A-Za-z]|research_ws|YOLO26-NMS-FREE)' \
+               -- '*.py' '*.ps1' '*.yaml' '*.yml' '*.md' '*.cff' '*.csv' '*.txt' \
+               ':!THIRD_PARTY_NOTICES.md' ':!.github/workflows/smoke.yml'; then
+            echo "::error::a local path or the pre-release codename is committed"
+            exit 1
+          fi
+
+      - name: Analysis that needs only the shipped CSVs still runs
+        run: |
+          pip install --quiet numpy
+          python scripts/decomp_endpoint_check.py
+          python scripts/recoverability_table.py
+
+      - name: Released checkpoints carry no local paths
+        run: |
+          if grep -aoE '[A-Za-z]:\\\\?[A-Za-z0-9_\\]*research_ws' weights_release/*.pt; then
+            echo "::error::checkpoint metadata still contains a local path"
+            exit 1
+          fi

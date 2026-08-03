@@ -6,7 +6,9 @@ abstract: >-
   detectors. Treats the fixed top-K stage as a rate-constrained ranked-selection
   channel, names the loss Rank-Truncation Information Loss (RTIL), decomposes the
   density-stratified recall drop into a recoverable budget-truncation term, an
-  irreducible shared-difficulty term and a small one-to-one-head residual, and
+  shared-difficulty term that the one-to-many reference path also fails to
+  recover at the cached rank depth, and a small residual between the two
+  evaluated decode paths, and
   repairs the recoverable term at inference with DABA (Density-Adaptive Budget
   Allocation), a training-free density-to-budget rule.
 type: software

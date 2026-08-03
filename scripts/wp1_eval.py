@@ -327,6 +327,10 @@ def main():
     ap.add_argument("--class-aware", action="store_true",
                     help="require pred class == GT class (visdrone FT only)")
     ap.add_argument("--out-prefix", required=True)
+    ap.add_argument("--allow-missing", action="store_true",
+                    help="score GT images that have no prediction record as "
+                         "zero-recall instead of failing; writes "
+                         "<out-prefix>_missing_images.txt")
     args = ap.parse_args()
 
     gt_data = (load_visdrone_gt(args.gt) if args.dataset == "visdrone"
@@ -342,6 +346,34 @@ def main():
                          ignore_mode=args.ignore_mode,
                          class_aware=args.class_aware)
     print(f"evaluated: {len(per_image)} images")
+
+    # Coverage gate. evaluate() walks the prediction file, so any GT image the
+    # inference pass skipped (corrupt file, OOM, bad path) would silently leave
+    # the denominator instead of counting as a zero-recall image -- which biases
+    # every reported rate upward. Report coverage always, and refuse to emit
+    # headline tables from a partial cache unless the caller opts in.
+    evaluated = {r["image"] for r in per_image}
+    missing = sorted(set(gt_data) - evaluated)
+    print(f"coverage:  {len(evaluated)}/{len(gt_data)} GT images have predictions")
+    if missing:
+        head = ", ".join(missing[:10]) + (" ..." if len(missing) > 10 else "")
+        msg = (f"{len(missing)} GT image(s) have no prediction record: {head}\n"
+               f"    Dropping them would inflate every rate in this table. "
+               f"Re-run inference for them, or pass --allow-missing to score "
+               f"them as zero-recall images.")
+        if not args.allow_missing:
+            raise SystemExit("ERROR: " + msg)
+        print("WARNING: " + msg)
+        with open(args.out_prefix + "_missing_images.txt", "w",
+                  encoding="utf-8") as f:
+            f.write("\n".join(missing) + "\n")
+        for img in missing:
+            g = gt_data[img]
+            row = {k: 0 for k in per_image[0]}
+            row["image"] = img
+            row["n_gt"] = len(g["gt"])
+            row["bucket"] = bucket_of(len(g["gt"]))
+            per_image.append(row)
 
     os.makedirs(os.path.dirname(args.out_prefix), exist_ok=True)
     pi_path = args.out_prefix + "_per_image.csv"
