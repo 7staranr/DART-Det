@@ -1,0 +1,71 @@
+Resolved optimizer evidence for training_manifest.csv
+
+Each block is the line the framework printed after resolving
+optimizer=auto, plus the SHA256 of the log it was read from.
+Regenerate with scripts/extract_train_provenance.py.
+
+
+[ft_visdrone_yolo26n_1280]  seed=0  script=train_visdrone_n.py
+  log: train_n2.log  sha256=02d67c3d60a884eba947f6e8b90791269945ddc7de0fe056b7e41a93660f731e
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_visdrone_yolo26n_1280_s1]  seed=1  script=train_seed1_pair.py
+  log: seed1_base.log  sha256=b25d3e122a71e12fc5d2e85040c64e77550caf46979be097553ff500634a8175
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_visdrone_yolo26s_1280]  seed=0  script=train_visdrone_s.py
+  log: train_s.log  sha256=135f2a644172880e9ea2d375dbf08885d0f75aa94a15aca04f241d06973bdd44
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_sku110k_yolo26n_1024]  seed=0  script=train_sku_n.py
+  log: train_sku.log  sha256=12d72ce6d3fe749be42795d121c57cfddd4b997e20f55d7ef72a7a0c5a50ae5f
+  optimizer: AdamW(lr=0.002, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.000515625), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_sku110k_yolo26n_1024_s1]  seed=1  script=train_sku_n_seed.py
+  log: train_sku_s1.log  sha256=cf11098085fcf7851cc2189906a90c7a67fabc85bfe70baa70b60ec12c83a337
+  optimizer: AdamW(lr=0.002, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.000515625), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_dota_yolo26n_1024]  seed=0  script=train_dota.py
+  log: train_dota.log  sha256=1e998fbf21dedae7d4041ea9483f19a62a48d649ceefd93a7ae8378265c198a6
+  optimizer: MuSGD(lr=0.01, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_visdrone_yolov10n_1280]  seed=0  script=train_yolov10_visdrone.py
+  log: train_yolov10.log  sha256=0ac74c9b52abf11ac3782714f47a1772cf023e348ab0c54bb0465faf0e79aa88
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 95 weight(decay=0.0), 108 weight(decay=0.000515625), 107 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_visdrone_rtdetr_l_960]  seed=0  script=train_rtdetr_visdrone.py
+  log: train_rtdetr.log  sha256=22d771ef825f7693b40eed34397c6b660cd65fbef152fc075eb4eb786bf6c8c8
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 143 weight(decay=0.0), 206 weight(decay=0.000515625), 226 bias(decay=0.0)
+  manifest agrees: yes
+
+[ft_sku_rtdetr_l_1024]  seed=0  script=train_rtdetr_sku.py
+  log: train_rtdetr_sku.log  sha256=754e3c9efb489f7ae03bce47dfe24956f2adf89aa5e6d8ae36d23c19e96c27a7
+  optimizer: AdamW(lr=0.002, momentum=0.9) with parameter groups 143 weight(decay=0.0), 206 weight(decay=0.000515625), 226 bias(decay=0.0)
+  manifest agrees: yes
+
+[wp5_norphan_yolo26n_1280]  seed=0  script=wp5_train_norphan.py
+  log: wp5_train.log  sha256=450a832b59cd6b2bef84d10a9dfd4f4024e8d7a0e5d2cec8967812c641d29780
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[wp5_norphan_yolo26n_1280_s1]  seed=1  script=train_seed1_pair.py
+  log: seed1_wp5.log  sha256=dbccf3c52831516210179602b84344a7b5f447ff4314add253aecc4f892c774d
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[wp5v2_yolo26n_1280]  seed=0  script=wp5_train_v2.py
+  log: wp5v2_s0.log  sha256=e3a59fcbf69a9583e5cd1df462276b3d275f6f5fa4846b368bf532542fa35c4b
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes
+
+[wp5v2_yolo26n_1280_s1]  seed=1  script=wp5_train_v2.py
+  log: wp5v2_s1.log  sha256=1af7243e2d2bb0e0243fefd0550f01dbd0ac35170a5e675669b370a7f076f803
+  optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+  manifest agrees: yes

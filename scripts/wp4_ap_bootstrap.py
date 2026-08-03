@@ -102,8 +102,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--allow-missing", action="store_true",
                     help="proceed when some dense GT images have no prediction "
-                         "record; they are excluded and reported, which biases "
-                         "the result upward")
+                         "record; they are scored as empty predictions and kept "
+                         "in the AP denominator and the image bootstrap")
     args = ap.parse_args()
 
     n_classes = 1 if args.dataset == "sku" else (15 if args.dataset == "dota" else 10)

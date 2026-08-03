@@ -81,6 +81,15 @@ def main():
     occ_above_n = defaultdict(int)
 
     with open(args.preds, encoding="utf-8") as f:
+        _keys = [json.loads(line)["image"] for line in f if line.strip()]
+    we.reject_duplicate_keys(_keys, args.preds)
+    # Slot composition is a claim about what fills the budget, so a partial
+    # cache silently changes it. There is no sensible "empty" reading here --
+    # an image inference never ran is not a detector that returned no slots --
+    # so this fails closed rather than offering --allow-missing.
+    we.require_coverage(gt_data, _keys, False, what="slot composition")
+
+    with open(args.preds, encoding="utf-8") as f:
         for line in f:
             r = json.loads(line)
             img = r["image"]
@@ -93,11 +102,15 @@ def main():
             # slot composition of the top-cap
             lab, mr_cap = classify(preds, gt, gcls, args.cap, args.iou,
                                    class_aware)
+            # Count the image in the bucket whether or not it contributed a
+            # slot: an image that returned nothing is still an image in that
+            # density bucket, and excluding it made n_img mean "images with at
+            # least one slot" while the header called it a bucket image count.
+            by_bucket_n[b] += 1
             if len(lab):
                 comp = np.array([(lab == 1).sum(), (lab == 2).sum(),
                                  (lab == 0).sum()], float)
                 by_bucket[b] += comp
-                by_bucket_n[b] += 1
             # recovered GTs: matched in (cap, 1000]
             lab1k, mr1k = classify(preds, gt, gcls, 1000, args.iou, class_aware)
             recovered = np.where((mr1k >= args.cap) & (mr1k < 1000))[0]

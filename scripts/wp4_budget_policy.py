@@ -43,7 +43,8 @@ def main():
     ap.add_argument("--iou", type=float, default=0.5)
     ap.add_argument("--allow-missing", action="store_true",
                     help="proceed when some GT images have no prediction record; "
-                         "they are reported and excluded, which biases results up")
+                         "they are scored as empty predictions and kept in the "
+                         "recall denominator")
     args = ap.parse_args()
 
     gt_data = (we.load_visdrone_gt(args.gt) if args.dataset == "visdrone"
@@ -54,9 +55,17 @@ def main():
     we.reject_duplicate_keys(_keys, args.preds)
     # This is the DABA policy itself, so a GT image absent from the cache would
     # drop out of recall, FP/img and the realized-budget statistics alike.
-    we.require_coverage(gt_data, _keys, args.allow_missing,
-                        what="DABA budget policy")
+    _missing = we.require_coverage(gt_data, _keys, args.allow_missing,
+                                   what="DABA budget policy")
     data = wf.per_image_tp_flags(gt_data, args.preds, args.iou)
+    # per_image_tp_flags is driven by the cache, so a missing image yields no
+    # row. Append it explicitly as an empty prediction: no TPs, no FP-eligible
+    # detections, zero detections, but its ground truth still in the bucket.
+    for _img in _missing:
+        _g = gt_data[_img]
+        data.append((we.bucket_of(len(_g["gt"])), len(_g["gt"]),
+                     np.zeros(len(_g["gt"]), dtype=bool),
+                     np.zeros(0, dtype=bool), 0))
 
     # need ndet@conf0.1 per image for the self-estimating policy
     conf01 = {}

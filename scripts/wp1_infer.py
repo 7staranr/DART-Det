@@ -140,6 +140,16 @@ def main():
                       f"{n_done / dt:.1f} img/s)", flush=True)
     print(f"done: {n_done} images ({n_skipped} skipped) -> {args.out}  "
           f"({time.time() - t0:.0f}s)")
+    if n_done == 0:
+        os.remove(args.out)
+        raise SystemExit(
+            f"ERROR: inference produced zero prediction records "
+            f"({n_skipped} image(s) raised). The empty cache has been removed; "
+            f"leaving it would make every downstream table silently empty.")
+    if n_skipped:
+        print(f"WARNING: {n_skipped} image(s) were skipped. Analyses over this "
+              f"cache will fail their coverage check until it is complete "
+              f"(or --allow-missing is passed, which scores them zero).")
 
 
 if __name__ == "__main__":
