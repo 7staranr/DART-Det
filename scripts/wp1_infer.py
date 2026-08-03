@@ -22,16 +22,16 @@ import time
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
-    ap.add_argument("--images", default=None,
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--images", default=None,
                     help="directory of images (all files)")
-    ap.add_argument("--list", default=None,
+    src.add_argument("--list", default=None,
                     help="txt file with absolute image paths (one per line)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--imgsz", type=int, default=1280)
     ap.add_argument("--max-det", type=int, default=1000)
     ap.add_argument("--conf", type=float, default=0.001)
     ap.add_argument("--device", default="0")
-    ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--o2m", action="store_true",
                     help="use one-to-many head + NMS instead of e2e head")
     ap.add_argument("--nms-iou", type=float, default=0.7,
@@ -72,10 +72,26 @@ def main():
             for f in os.listdir(args.images)
             if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp"))
         )
+    if not img_files:
+        raise SystemExit(
+            f"ERROR: no images found via "
+            f"{'--list ' + args.list if args.list else '--images ' + args.images}."
+            f"\n    Writing an empty cache here would make every downstream table "
+            f"silently empty, so this stops instead.")
+    stems = [os.path.splitext(os.path.basename(f))[0] for f in img_files]
+    if len(set(stems)) != len(stems):
+        dup = sorted({x for x in stems if stems.count(x) > 1})
+        raise SystemExit(
+            f"ERROR: {len(dup)} image stem(s) occur more than once: "
+            f"{', '.join(dup[:10])}{' ...' if len(dup) > 10 else ''}"
+            f"\n    The cache is keyed by file stem, so these would overwrite "
+            f"each other. De-duplicate the image list first.")
     print(f"model={args.model} images={len(img_files)} imgsz={args.imgsz} "
           f"max_det={args.max_det} conf={args.conf}")
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    outdir = os.path.dirname(args.out)
+    if outdir:
+        os.makedirs(outdir, exist_ok=True)
     t0 = time.time()
     n_done = 0
     with open(args.out, "w", encoding="utf-8") as fout:

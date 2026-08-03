@@ -45,12 +45,22 @@ def main():
     # GT image inference skipped would silently leave the n_gt denominator and
     # inflate every recovery rate below.
     with open(args.preds, encoding="utf-8") as f:
-        have = {json.loads(line)["image"] for line in f}
-    we.require_coverage(gt_data, have, args.allow_missing,
-                        what="confidence-floor table")
+        have = [json.loads(line)["image"] for line in f]
+    we.reject_duplicate_keys(have, args.preds)
+    missing = we.require_coverage(gt_data, have, args.allow_missing,
+                                  what="confidence-floor table")
 
     # acc[bucket][floor] = [matched@300, matched@1000, n_gt]
     acc = defaultdict(lambda: defaultdict(lambda: np.zeros(3)))
+
+    # An image with no cache record contributes its ground truth to every
+    # floor's denominator and zero matches, which is what require_coverage's
+    # message promises. Dropping it instead would raise every rate below.
+    for img in missing:
+        g = gt_data[img]
+        b = bucket_of(len(g["gt"]))
+        for t in FLOORS:
+            acc[b][t] += np.array([0.0, 0.0, float(len(g["gt"]))])
     with open(args.preds, encoding="utf-8") as f:
         for line in f:
             r = json.loads(line)

@@ -39,6 +39,9 @@ jobs:
           python scripts/decomp_endpoint_check.py
           python scripts/recoverability_table.py
 
+      - name: Cache-integrity guards hold
+        run: python tests/test_cache_integrity.py
+
       - name: Released checkpoints carry no local paths
         run: |
           if grep -aoE '[A-Za-z]:\\\\?[A-Za-z0-9_\\]*research_ws' weights_release/*.pt; then

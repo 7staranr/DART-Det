@@ -17,11 +17,15 @@ import wp1_eval as we
 
 
 def load_preds(path):
-    out = {}
+    out, order = {}, []
     with open(path, encoding="utf-8") as f:
         for line in f:
             r = json.loads(line)
+            order.append(r["image"])
             out[r["image"]] = np.array(r["boxes"], dtype=np.float32).reshape(-1, 6)
+    # A dict would silently keep the last record for a duplicated key, and a
+    # set-based coverage check could never see it.
+    we.reject_duplicate_keys(order, path)
     return out
 
 
@@ -113,7 +117,15 @@ def main():
                 if len(v["gt"]) >= args.thr_density]
     we.require_coverage(dense_gt, preds.keys(), args.allow_missing,
                         what=f"dense subset, GT>={args.thr_density}")
-    dense = [k for k in dense_gt if k in preds]
+    # Keep every dense GT image. A missing cache entry becomes an empty
+    # prediction array, so its ground truth still counts in the AP denominator
+    # and it still enters the image bootstrap; dropping it would inflate AP.
+    dense = dense_gt
+    for k in dense:
+        preds.setdefault(k, np.empty((0, 6), dtype=np.float32))
+    if not dense:
+        raise SystemExit(
+            f"ERROR: no image has GT>={args.thr_density}; nothing to score.")
     print(f"dense images (GT>={args.thr_density}): {len(dense)}")
 
     # precompute caches per budget

@@ -4,7 +4,9 @@ In a dense image where the 300-cap binds, WHO occupies the 300 slots?
   - TP-distinct (matches a not-yet-matched GT)  -> real objects fill the budget = H1 (hard exhaustion)
   - duplicate    (matches an already-matched GT) -> wasted slot               = H1' (rank displacement)
   - FP           (matches no GT)                 -> garbage displaces a TP     = H1' (rank displacement)
-Reports mean slot composition per density bucket, plus, among GTs MISSED at 300
+Reports pooled (micro-averaged) slot composition per density bucket -- TP/dup/FP
+are summed across the bucket's images and divided by the bucket's total slots,
+not averaged over per-image ratios, plus, among GTs MISSED at 300
 but recovered by 1000, the composition of the 300 slots ranked above their
 recovering prediction. This gives a measured H1/H1' split instead of "two
 independent confirmations."

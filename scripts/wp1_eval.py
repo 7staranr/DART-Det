@@ -203,6 +203,29 @@ def greedy_match(pred_boxes, gt_boxes, iou_thr, pred_cls=None, gt_cls=None):
     return matched_rank, dup_suspect
 
 
+def reject_duplicate_keys(keys, path="<cache>"):
+    """A prediction cache must carry each image once.
+
+    Coverage checks compare sets, so a duplicated record is invisible to them,
+    yet the consequences differ per script: wp1_eval would evaluate that image
+    twice and double-count its ground truth, while a dict-based loader would
+    silently keep only the last record. Image keys are file stems, so two
+    identically named files in different directories collide here even when the
+    inference run itself was fine.
+    """
+    seen, dup = set(), []
+    for k in keys:
+        (dup.append(k) if k in seen else seen.add(k))
+    if dup:
+        u = sorted(set(dup))
+        raise SystemExit(
+            f"ERROR: {len(dup)} duplicate image key(s) in {path}: "
+            f"{', '.join(u[:10])}{' ...' if len(u) > 10 else ''}\n"
+            f"    Image keys are file stems, so identically named images in "
+            f"different directories collide. Re-generate the cache over a "
+            f"de-duplicated image list.")
+
+
 def require_coverage(gt_keys, have_keys, allow_missing, what="analysis",
                      missing_list_path=None):
     """Refuse to report headline numbers over a partial prediction cache.
@@ -401,6 +424,12 @@ def main():
     outdir = os.path.dirname(args.out_prefix)
     if outdir:
         os.makedirs(outdir, exist_ok=True)
+
+    # Duplicates are invisible to the set-based coverage check below, and here
+    # they would be evaluated twice, double-counting that image's ground truth.
+    with open(args.preds, encoding="utf-8") as f:
+        reject_duplicate_keys([json.loads(l)["image"] for l in f if l.strip()],
+                              args.preds)
 
     if not per_image:
         raise SystemExit(

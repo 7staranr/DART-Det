@@ -44,7 +44,8 @@ def getrow(path, bucket):
 # not the configured cache cap: it is bounded by the cap but also by the
 # confidence floor and by how many candidates the image actually yields.
 print(f"{'detector':>10} {'dataset':>9} {'type':>5} {'bucket':>9} {'n':>4} "
-      f"{'obs.M':>6} {'R@300':>6} {'R@1000':>7} {'rel_rec':>7} recov?")
+      f"{'obs.M':>6} {'R@300':>6} {'R@1000':>7} {'rel_rec':>7} "
+      f"{'tail?':>6} {'gain?':>6} {'DABA?':>6}")
 for det, ds, typ, fn in ROWS:
     path = _find(fn)
     if not os.path.exists(path):
@@ -62,7 +63,9 @@ for det, ds, typ, fn in ROWS:
     # reported as such; rel_rec == 0 means nothing below rank K to reopen.
     eligible = M > 300.0 + 1e-9          # structural: a tail exists to reopen
     gained = float(use["rel_rec"]) > 0.0  # empirical: it pays off on this split
+    e_s = "yes" if eligible else "no"
+    g_s = "yes" if gained else "no"
     daba = "yes" if (eligible and gained) else "no"
     print(f"{det:>10} {ds:>9} {typ:>5} {use['bucket']:>9} {use['n_images']:>4} "
           f"{M:>6.0f} {float(use['R@300']):>6.3f} {float(use['R@1000']):>7.3f} "
-          f"{float(use['rel_rec']):>7.3f} {daba:>5}")
+          f"{float(use['rel_rec']):>7.3f} {e_s:>6} {g_s:>6} {daba:>6}")

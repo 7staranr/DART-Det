@@ -17,8 +17,21 @@ def per_image(preds, gt, ca=False):
     """return list of (n_proxy, matched@300, matched@600, matched@1000)."""
     rows = []
     for img, g in gt.items():
+        if len(g["gt"]) == 0:
+            continue
         p = preds.get(img)
-        if p is None or len(p) == 0 or len(g["gt"]) == 0:
+        if p is None:
+            # No cache record at all: that is missing data, not a detector that
+            # returned nothing. Skipping it silently would reshape the marginal
+            # recovery curve, so refuse rather than guess.
+            raise SystemExit(
+                f"ERROR: {img} has ground truth but no prediction record.\n"
+                f"    The bracket is read off a complete cache; rebuild it for "
+                f"this split before re-running.")
+        if len(p) == 0:
+            # A legitimate empty prediction: proxy 0, nothing recovered at any
+            # budget. It belongs in the low-density bin, not outside the data.
+            rows.append((0, 0, 0, 0))
             continue
         n = int((p[:, 4] >= 0.1).sum())               # density proxy
         m = {}

@@ -55,7 +55,15 @@ def main():
                 if len(v["gt"]) >= args.thr_density]
     we.require_coverage(dense_gt, preds.keys(), args.allow_missing,
                         what=f"dense subset, GT>={args.thr_density}")
-    dense = [k for k in dense_gt if k in preds]
+    # As in wp4_ap_bootstrap: a missing cache entry is scored as an empty
+    # prediction list (density proxy 0, so the gate assigns K*=300) rather than
+    # removed, which would take its ground truth out of the denominator.
+    dense = dense_gt
+    for k in dense:
+        preds.setdefault(k, np.empty((0, 6), dtype=np.float32))
+    if not dense:
+        raise SystemExit(
+            f"ERROR: no image has GT>={args.thr_density}; nothing to score.")
     print(f"dense images (GT>={args.thr_density}): {len(dense)}")
 
     # per-image DABA budget from the density proxy
