@@ -1,6 +1,6 @@
 # DART-Det — Density-Adaptive Rank-Truncation for NMS-free detection
 
-Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free detectors. An NMS-free head keeps only the top-K ranked predictions per image; as scene density grows, true positives the network has already scored are pushed past rank K and discarded before any confidence thresholding. We treat this fixed top-K stage as a rate-constrained ranked-selection channel whose effective capacity K_eff collapses below the nominal budget K_nom = 300, name the loss Rank-Truncation Information Loss (RTIL = R@M − R@K), decompose the density-stratified recall drop into a recoverable budget-truncation term, a shared-difficulty term that the one-to-many reference path also fails to recover at the cached rank depth, and a small one-to-one-head residual, and repair the recoverable term at inference with DABA (Density-Adaptive Budget Allocation), a training-free density-to-budget rule. A soft-versus-hard transfer law predicts recoverability from detector structure: soft top-K heads that cache a rank tail (M > K, e.g. YOLO26, YOLOv10) are recoverable; hard fixed-query budgets (RT-DETR, M ≡ K) are not.
+Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free detectors. An NMS-free head keeps only the top-K ranked predictions per image; as scene density grows, true positives the network has already scored are pushed past rank K and discarded before any confidence thresholding. We treat this fixed top-K stage as a rate-constrained ranked-selection channel whose effective capacity -- the fraction of objects the budget covers, K_eff/|G| = R@K, not the absolute count K_eff -- collapses as density grows, name the loss Rank-Truncation Information Loss (RTIL = R@M − R@K), decompose the density-stratified recall drop into a recoverable budget-truncation term, a shared-difficulty term that the one-to-many reference path also fails to recover at the cached rank depth, and a small one-to-one-head residual, and repair the recoverable term at inference by raising the decode cap on dense images, a training-free change; a density gate (DABA, Density-Adaptive Budget Allocation) realizes the same gain while spending fewer slots on sparse images. A soft-versus-hard transfer law predicts recoverability from detector structure: soft top-K heads that cache a rank tail (M > K, e.g. YOLO26, YOLOv10) are recoverable; hard fixed-query budgets (RT-DETR, M ≡ K) are not.
 
 This repository contains the diagnostic protocol, the density-stratified evaluation, DABA, and the figure/table generators. It does not ship datasets; those are public and configured through `DART_ROOT` (see Notes).
 
@@ -52,7 +52,7 @@ scripts/
   d1_verify_yolo26.py, d1b_verify_paths.py     inference-semantics checks
 
   # stage 2 - causal context-masking intervention
-  wp2_mask_intervention.py   remove competitors, measure score lift vs placebo
+  wp2_mask_intervention.py   gray-fill outside a 3x probe window, score lift vs placebo
   wp2_mask_bootstrap.py      image-clustered bootstrap, miss-subgroup
 
   # stage 3 - training-time assignment dynamics
@@ -300,15 +300,26 @@ All datasets are public and used under their own licenses; download them into `D
 
 ## Citation
 
-Under review. BibTeX will be added on acceptance:
+Under review at MDPI *AI*. `CITATION.cff` carries the machine-readable
+metadata (GitHub renders it as "Cite this repository"); the BibTeX below will
+gain volume/pages/DOI on acceptance:
 
 ```bibtex
 @article{dart_rtil,
-  title   = {DART: A Density-Stratified Diagnosis and Training-Free Budget
-             Repair of Rank-Truncation Information Loss in Fixed-Budget
-             NMS-free Detection},
-  author  = {TODO},
+  title   = {DART: Diagnosing and Repairing Rank-Truncation Information Loss in Fixed-Budget End-to-End Detection},
+  author  = {Yang, Jixiang and Yi, Junfei and Li, Jinhan and Ma, Shengjie},
   year    = {2026},
-  note    = {Under review}
+  note    = {Manuscript under review}
 }
 ```
+
+## Authors
+
+| | Affiliation | ORCID |
+|---|---|---|
+| Jixiang Yang | Qingdao University of Science and Technology | [0009-0002-7291-8366](https://orcid.org/0009-0002-7291-8366) |
+| Junfei Yi | The University of Manchester | [0009-0008-0063-4085](https://orcid.org/0009-0008-0063-4085) |
+| Jinhan Li | Qingdao University of Science and Technology | — |
+| Shengjie Ma (corresponding) | Qingdao University of Science and Technology | [0000-0001-7506-8120](https://orcid.org/0000-0001-7506-8120) |
+
+Correspondence: mashengjie@qust.edu.cn
