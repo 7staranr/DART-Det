@@ -58,14 +58,6 @@ def main():
     _missing = we.require_coverage(gt_data, _keys, args.allow_missing,
                                    what="DABA budget policy")
     data = wf.per_image_tp_flags(gt_data, args.preds, args.iou)
-    # per_image_tp_flags is driven by the cache, so a missing image yields no
-    # row. Append it explicitly as an empty prediction: no TPs, no FP-eligible
-    # detections, zero detections, but its ground truth still in the bucket.
-    for _img in _missing:
-        _g = gt_data[_img]
-        data.append((we.bucket_of(len(_g["gt"])), len(_g["gt"]),
-                     np.zeros(len(_g["gt"]), dtype=bool),
-                     np.zeros(0, dtype=bool), 0))
 
     # need ndet@conf0.1 per image for the self-estimating policy
     conf01 = {}
@@ -74,13 +66,34 @@ def main():
             rec = json.loads(line)
             arr = np.array(rec["boxes"], dtype=np.float32).reshape(-1, 6)
             conf01[rec["image"]] = int((arr[:, 4] >= 0.10).sum())
-    # re-read image ids in same order as data
-    ids = []
+    # Bind each row to its image id instead of rebuilding a parallel list and
+    # trusting the two to stay in step: they did not. per_image_tp_flags walks
+    # the cache in file order and keeps records whose image is in gt_data, so
+    # that is the order reproduced here, and the pairing is asserted rather
+    # than assumed.
+    rows = []
     with open(args.preds, "r", encoding="utf-8") as f:
         for line in f:
             rec = json.loads(line)
             if rec["image"] in gt_data:
-                ids.append(rec["image"])
+                rows.append(rec["image"])
+    if len(rows) != len(data):
+        raise SystemExit(
+            f"ERROR: {len(data)} per-image rows but {len(rows)} image ids; "
+            f"the cache changed under us or the two passes disagree.")
+    paired = list(zip(rows, data))
+
+    # A GT image with no cache record produces no row above, so add it here as
+    # an empty prediction: no TPs, nothing FP-eligible, zero detections, but its
+    # ground truth still counted in the bucket. Appending to `data` alone (as an
+    # earlier revision did) was useless, because zip() against a shorter id list
+    # silently dropped it again.
+    for _img in _missing:
+        _g = gt_data[_img]
+        paired.append((_img, (we.bucket_of(len(_g["gt"])), len(_g["gt"]),
+                              np.zeros(len(_g["gt"]), dtype=bool),
+                              np.zeros(0, dtype=bool), 0)))
+        conf01.setdefault(_img, 0)
 
     policies = {
         "fixed300": lambda n_gt, nd01: 300,
@@ -95,7 +108,7 @@ def main():
     summary = {}
     for pname, pfun in policies.items():
         by_bucket = {}
-        for (bucket, n_gt, tp, fpel, n_det), img_id in zip(data, ids):
+        for img_id, (bucket, n_gt, tp, fpel, n_det) in paired:
             k = pfun(n_gt, conf01.get(img_id, 0))
             k_eff = min(k, n_det)
             rec_tp = int(tp[:k_eff].sum())
@@ -110,7 +123,7 @@ def main():
             if bname not in by_bucket:
                 continue
             tp_, gt_, fp_, sl_ = by_bucket[bname]
-            n_img = sum(1 for (b, *_), _ in zip(data, ids) if b == bname)
+            n_img = sum(1 for _, (b, *_) in paired if b == bname)
             srow[bname] = (tp_ / max(gt_, 1), fp_ / n_img, sl_ / n_img)
             print(f"{pname:>10} {bname:>9} {tp_ / max(gt_, 1):7.4f} "
                   f"{fp_ / n_img:7.1f} {sl_ / n_img:6.0f}")

@@ -127,6 +127,9 @@ def main():
     print(f"{'bucket':>9} {'n_img':>6} {'%TP-distinct':>12} {'%dup':>7} "
           f"{'%FP':>7}   interpretation")
     for b in BNAMES:
+        if by_bucket[b].sum() == 0:
+            print(f"{b:>9} {by_bucket_n[b]:>6}   no occupied slots in this bucket")
+            continue
         if by_bucket_n[b] == 0:
             continue
         comp = by_bucket[b] / by_bucket[b].sum()

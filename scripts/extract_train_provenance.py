@@ -13,6 +13,12 @@ on trust.
 
     python scripts/extract_train_provenance.py --runs <dir with the .log files>
 
+Scope: this verifies three manifest columns -- resolved_optimizer,
+resolved_lr0 and momentum -- against the log. It does not verify
+base_checkpoint or the resume chain; those are stated in the manifest's own
+`notes` column and would need the full argument dump, not the optimizer line,
+to check the same way.
+
 Two of the logs are UTF-16 (PowerShell redirection), which a utf-8 read turns
 into null-interleaved text that matches nothing, so the encoding is sniffed.
 """

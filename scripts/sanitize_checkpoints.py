@@ -7,9 +7,12 @@ finetune produced on a workstation carries that machine's absolute paths in
 useless to anyone else -- they point at directories that do not exist on their
 machine -- and they publish the author's local layout.
 
-This rewrites only those metadata strings. Tensors, EMA buffers, class names,
-and every field inference reads are left untouched, and the script proves that
-by comparing every tensor before and after byte for byte.
+This rewrites only those metadata strings. The check it performs is exactly
+this: every tensor reachable in the checkpoint is digested before and after,
+and the write is refused if the digests differ. That proves no weight or EMA
+buffer changed. It does not by itself prove that non-tensor metadata other
+than the path fields is untouched -- for that, rely on scrub() only ever
+assigning to keys whose current value satisfies leaks().
 
     python scripts/sanitize_checkpoints.py --check    # report only
     python scripts/sanitize_checkpoints.py --apply    # rewrite in place
@@ -70,12 +73,27 @@ def sha256_file(p):
     return h.hexdigest()
 
 
+# Directory prefixes that identify a machine rather than a repository. Kept
+# broad on purpose: a false positive costs one basename, a false negative
+# publishes someone's home directory.
+_POSIX_ROOTS = ("/home/", "/users/", "/mnt/", "/media/", "/opt/", "/srv/",
+                "/var/", "/root/", "/tmp/", "/private/", "/data/")
+
+
 def leaks(value):
-    if not isinstance(value, str):
+    """Does this string look like a path on the machine that trained the model?"""
+    if not isinstance(value, str) or not value.strip():
         return False
-    low = value.replace("/", "\\").lower()
-    return ("\\" in low and ":" in low[:3]) or "research_ws" in low \
-        or "yolo26-nms-free" in low
+    low = value.lower()
+    win = low.replace("/", "\\")
+    if "\\" in win and len(win) > 2 and win[1] == ":":       # C:\... , E:/...
+        return True
+    if any(low.startswith(r) or ("/" + r.strip("/") + "/") in low
+           for r in _POSIX_ROOTS):                            # /home/alice/...
+        return True
+    if low.startswith("\\\\"):                                # UNC share
+        return True
+    return "research_ws" in low or "yolo26-nms-free" in low
 
 
 def main():
@@ -89,23 +107,50 @@ def main():
         raise SystemExit(f"ERROR: no weights_release/ under {ROOT}")
 
     sums = []
+    any_found = False
     for fn in sorted(os.listdir(WDIR)):
         if not fn.endswith(".pt"):
             continue
         p = os.path.join(WDIR, fn)
         ck = torch.load(p, map_location="cpu", weights_only=False)
-        ta = ck.get("train_args") or {}
-        found = {k: v for k, v in ta.items() if k in PATH_KEYS and leaks(v)}
-        extra = {k: v for k, v in ta.items() if k not in PATH_KEYS and leaks(v)}
 
+        # Scan the whole object graph, not just the top-level train_args:
+        # Ultralytics keeps a second copy of the arguments on the model (and
+        # EMA) object, and an earlier version of this script checked only the
+        # first, reporting "clean" while `grep` still found paths in the file.
+        found = []
+        seen = set()
+
+        def scan(o, path="", depth=0):
+            if depth > 8 or id(o) in seen:
+                return
+            seen.add(id(o))
+            if isinstance(o, dict):
+                for k, v in o.items():
+                    if leaks(v):
+                        found.append((f"{path}[{k!r}]", v))
+                    scan(v, f"{path}[{k!r}]", depth + 1)
+            elif isinstance(o, (list, tuple)):
+                for i, v in enumerate(o):
+                    scan(v, f"{path}[{i}]", depth + 1)
+            else:
+                for attr in ("args", "overrides", "yaml"):
+                    if hasattr(o, attr):
+                        try:
+                            scan(getattr(o, attr), f"{path}.{attr}", depth + 1)
+                        except Exception:
+                            pass
+
+        scan(ck, "ckpt")
         print(f"\n{fn}")
-        for k, v in {**found, **extra}.items():
-            print(f"  train_args[{k}] = {v!r}")
-        if not found and not extra:
-            print("  no local paths in train_args")
+        for where, v in found:
+            print(f"  {where} = {v!r}")
+        if not found:
+            print("  no machine-local paths anywhere in the checkpoint")
 
         if args.check:
             sums.append((fn, sha256_file(p)))
+            any_found = any_found or bool(found)
             continue
 
         before = tensor_digest(ck)
@@ -180,6 +225,10 @@ def main():
             for fn, s in sums:
                 f.write(f"{s}  {fn}\n")
         print(f"\nwrote {os.path.join(WDIR, 'SHA256SUMS')}")
+    elif any_found:
+        raise SystemExit(
+            "\nERROR: machine-local paths remain in the released checkpoints. "
+            "Run --apply.")
 
 
 if __name__ == "__main__":

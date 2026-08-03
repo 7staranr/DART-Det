@@ -109,6 +109,48 @@ def main():
             capture_output=True, text=True, cwd=tmp)
         check("bare --out-prefix works", r.returncode == 0, r.stderr[-300:])
 
+        # 6. the reported bucket table, not just the per-image rows, must keep
+        #    the missing image's ground truth. Checking per-image alone would
+        #    miss an aggregate step that filtered the appended rows back out.
+        ann, preds = make_split(tmp, with_b=False)
+        r = run_eval(ann, preds, os.path.join(tmp, "o6", "t"), ["--allow-missing"])
+        buckets = list(csv.DictReader(
+            io.open(os.path.join(tmp, "o6", "t_buckets.csv"), encoding="utf-8")))
+        total_gt = sum(int(x["total_gt"]) for x in buckets)
+        n_images = sum(int(x["n_images"]) for x in buckets)
+        check("bucket table keeps both images", n_images == 2, f"got {n_images}")
+        check("bucket table keeps all 6 GT", total_gt == 6, f"got {total_gt}")
+        rk = [x for x in buckets if int(x["n_images"])]
+        recall = sum(float(x["R@300"]) * int(x["total_gt"]) for x in rk) / total_gt
+        check("pooled R@300 is 1/6, not 1/3",
+              abs(recall - 1 / 6) < 1e-3, f"got {recall:.4f}")
+
+        # 7. the DABA policy script must keep a missing image too. This is the
+        #    path where an earlier fix appended rows that zip() then dropped,
+        #    and no test covered it.
+        r = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "scripts", "wp4_budget_policy.py"),
+             "--dataset", "visdrone", "--gt", ann, "--preds", preds],
+            capture_output=True, text=True)
+        check("budget policy fails closed on a partial cache", r.returncode != 0)
+        r = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "scripts", "wp4_budget_policy.py"),
+             "--dataset", "visdrone", "--gt", ann, "--preds", preds,
+             "--allow-missing"],
+            capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        check("budget policy runs under --allow-missing", r.returncode == 0,
+              out[-300:])
+        # Both images hold 3 GT. If the missing one is scored as an empty
+        # prediction its GT stays in the denominator and recall is 1/6; if it
+        # is dropped -- the bug an earlier fix left in place -- recall is 1/3.
+        # columns are: policy  bucket  recall  FP/img  slots
+        recalls = sorted({line.split()[2] for line in out.splitlines()
+                          if "<50" in line and "policy" not in line
+                          and len(line.split()) >= 5})
+        check("budget policy scores the missing image rather than dropping it",
+              recalls == ["0.1667"], f"printed recalls: {recalls}")
+
     print(f"\n{len(FAILURES)} failure(s)" if FAILURES else "\nall guards hold")
     return 1 if FAILURES else 0
 

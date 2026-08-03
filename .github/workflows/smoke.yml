@@ -42,9 +42,11 @@ jobs:
       - name: Cache-integrity guards hold
         run: python tests/test_cache_integrity.py
 
-      - name: Released checkpoints carry no local paths
+      - name: Released checkpoints carry no machine-local paths
+        # The recursive scanner, not a grep for one known substring: the paths
+        # live in two places inside the pickle and a substring check cannot
+        # speak to POSIX paths or to a machine other than the one that trained
+        # these. --check exits non-zero if anything remains.
         run: |
-          if grep -aoE '[A-Za-z]:\\\\?[A-Za-z0-9_\\]*research_ws' weights_release/*.pt; then
-            echo "::error::checkpoint metadata still contains a local path"
-            exit 1
-          fi
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          python scripts/sanitize_checkpoints.py --check
