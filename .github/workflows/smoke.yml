@@ -28,7 +28,7 @@ jobs:
         # drift apart: Windows drives, UNC shares, the usual POSIX user and
         # scratch roots, and the pre-release codename.
         run: |
-          if git grep -nEI '([A-Za-z]:\\|\\\\\\\\[A-Za-z0-9]|/(home|Users|mnt|media|opt|srv|root|private)/[A-Za-z0-9._-]+/|research_ws|YOLO26-NMS-FREE)' \
+          if git grep -nEIi '([A-Za-z]:\\|\\\\[A-Za-z0-9]|(^|[^.[:alnum:]_])/(home|users|mnt|media|opt|srv|var|root|tmp|private|data)/[A-Za-z0-9._-]+/|research_ws|yolo26-nms-free)' \
                -- '*.py' '*.ps1' '*.yaml' '*.yml' '*.md' '*.cff' '*.csv' '*.txt' \
                ':!THIRD_PARTY_NOTICES.md' ':!.github/workflows/smoke.yml' \
                ':!scripts/sanitize_checkpoints.py'; then

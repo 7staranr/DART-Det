@@ -90,6 +90,8 @@ def main():
     }
 
     print(f"\n=== density-adaptive budget policies (IoU {args.iou}) ===")
+    print("MATCHING: class-agnostic (inherited from wp1_fppi.per_image_tp_flags); "
+          "the AP and confidence-floor scripts are class-aware on VisDrone.")
     print(f"{'policy':>10} {'bucket':>9} {'recall':>7} {'FP/img':>7} "
           f"{'slots':>6}")
     summary = {}

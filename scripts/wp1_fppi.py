@@ -69,16 +69,36 @@ def main():
     ap.add_argument("--gt", required=True)
     ap.add_argument("--preds", required=True)
     ap.add_argument("--iou", type=float, default=0.5)
+    ap.add_argument("--allow-missing", action="store_true",
+                    help="score GT images with no prediction record as zero "
+                         "detections instead of failing")
     args = ap.parse_args()
 
     gt_data = (we.load_visdrone_gt(args.gt) if args.dataset == "visdrone"
                else we.load_sku_gt(args.gt) if args.dataset == "sku"
                else we.load_crowdhuman_gt(args.gt))
+
+    # Same integrity guards as every other entry point: a GT image absent from
+    # the cache would leave the FPPI denominator instead of scoring zero, and a
+    # duplicated key would be counted twice. Neither is visible in the output.
+    with open(args.preds, "r", encoding="utf-8") as f:
+        _keys = [json.loads(line)["image"] for line in f if line.strip()]
+    we.reject_duplicate_keys(_keys, args.preds)
+    _missing = we.require_coverage(gt_data, _keys, args.allow_missing,
+                                   what="FPPI-conditioned recall")
+
     data = per_image_tp_flags(gt_data, args.preds, args.iou)
+    for _img in _missing:
+        _g = gt_data[_img]
+        data.append((we.bucket_of(len(_g["gt"])), len(_g["gt"]),
+                     np.zeros(KMAX, dtype=bool), np.zeros(KMAX, dtype=bool), 0))
 
     print(f"\n=== rank-pooled FP/img-conditioned recall (IoU {args.iou}) ===")
     print("NOTE: rank-cutoff pooling, NOT literature FPPI/MR-2 "
           "(threshold-swept); ignore-region preds exempt from FP count.")
+    print("MATCHING: class-agnostic (localization-only). The slot-composition, "
+          "confidence-floor and AP scripts match class-aware on VisDrone, so "
+          "recall here is not directly comparable with theirs.")
     hdr = (f"{'bucket':>9} {'n_img':>6} | " +
            " ".join(f"R@FP{int(l):<4}" for l in FPPI_LEVELS) +
            " |  R@300(FP/img)  R@1000(FP/img)")

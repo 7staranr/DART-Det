@@ -45,7 +45,7 @@ def per_image(preds, gt, ca=False):
     return rows
 
 
-def analyze(rows):
+def analyze(rows, monotone=True):
     rows = np.array(rows, float)
     n = rows[:, 0]
     d1 = rows[:, 2] - rows[:, 1]   # recovered objects 300->600 (per image)
@@ -77,6 +77,15 @@ def analyze(rows):
     lam_t2 = val_at(200, mids, a2)   # lambda that puts the 600->1000 crossover at n=200
     print(f"\nImplied cost ratio lambda for t1=100 (300->600 step): {lam_t1:.5f}")
     print(f"Implied cost ratio lambda for t2=200 (600->1000 step): {lam_t2:.5f}")
+    if not monotone:
+        # The single-crossover reading of the cost model needs a non-decreasing
+        # marginal profile. Where it does not hold, the two interpolated values
+        # are still informative about magnitude, but "brackets the deployed
+        # thresholds" would claim more than the premise allows.
+        print("=> profile is NOT monotone on this split: the single-crossover "
+              "reading does not apply, so no bracketing conclusion is drawn. "
+              "The two values above are reported for magnitude only.")
+        return
     # The two steps interpolate to different values, so what this shows is that
     # one low cost ratio is *consistent with* both deployed edges, not that a
     # single lambda derives them.
@@ -138,4 +147,4 @@ if __name__ == "__main__":
     sku = we.load_sku_gt(args.sku_gt)
     p = ab.load_preds(args.sku_preds)
     print("=== SKU-110K test (cross-domain check; profile is NON-monotone here) ===")
-    analyze(per_image(p, sku, ca=False))
+    analyze(per_image(p, sku, ca=False), monotone=False)

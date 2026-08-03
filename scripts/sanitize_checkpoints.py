@@ -3,7 +3,8 @@
 
 Ultralytics records the training invocation inside the checkpoint, so a
 finetune produced on a workstation carries that machine's absolute paths in
-`train_args` (model / data / project / save_dir / name). Those fields are
+`train_args` (model, data, project, save_dir, name, source, weights, and
+resume -- the set in PATH_KEYS plus resume). Those fields are
 useless to anyone else -- they point at directories that do not exist on their
 machine -- and they publish the author's local layout.
 
@@ -45,7 +46,20 @@ PATH_KEYS = ("model", "data", "project", "save_dir", "name", "source", "weights"
 
 
 def tensor_digest(obj):
-    """Stable digest over every tensor reachable in the checkpoint."""
+    """Digest over the tensors reachable through containers and state_dict().
+
+    Scope, stated exactly: this covers tensors found in dicts, lists/tuples,
+    and any object exposing state_dict() -- which is what holds the weights and
+    the EMA buffers, and therefore what backs the claim that neither changed.
+    It is not a digest of literally every tensor in the pickle.
+
+    Deliberately identity-blind: an earlier revision added a vars() walk with an
+    id()-based cycle guard, and because object identities and aliasing differ
+    between two deserializations the guard pruned different subtrees each time.
+    The digest then disagreed with itself on a checkpoint nothing had touched,
+    and the script refused to write a file it had correctly left alone. A
+    verification function that is not reproducible is worse than a narrower one.
+    """
     h = hashlib.sha256()
 
     def walk(o, path=""):
@@ -107,6 +121,7 @@ def main():
         raise SystemExit(f"ERROR: no weights_release/ under {ROOT}")
 
     sums = []
+    staged = []
     any_found = False
     for fn in sorted(os.listdir(WDIR)):
         if not fn.endswith(".pt"):
@@ -125,13 +140,18 @@ def main():
         seen = set()
 
         def scan(o, path="", depth=0):
+            # Check the node itself rather than only dict values and
+            # attributes: a path sitting directly inside a list has no parent
+            # key, and the earlier version walked straight past it while
+            # reporting that sequences were covered.
+            if leaks(o):
+                found.append((path, o))
+                return
             if depth > 8 or id(o) in seen:
                 return
             seen.add(id(o))
             if isinstance(o, dict):
                 for k, v in o.items():
-                    if leaks(v):
-                        found.append((f"{path}[{k!r}]", v))
                     scan(v, f"{path}[{k!r}]", depth + 1)
             elif isinstance(o, (list, tuple)):
                 for i, v in enumerate(o):
@@ -146,8 +166,6 @@ def main():
                 except TypeError:
                     attrs = {}
                 for k, v in attrs.items():
-                    if leaks(v):
-                        found.append((f"{path}.{k}", v))
                     scan(v, f"{path}.{k}", depth + 1)
 
         scan(ck, "ckpt")
@@ -213,7 +231,10 @@ def main():
                 for v in o.values():
                     walk(v, depth + 1)
             elif isinstance(o, (list, tuple)):
-                for v in o:
+                for i, v in enumerate(o):
+                    if leaks(v):
+                        # No field name here, so no defensible replacement.
+                        unexpected.append((f"<sequence>[{i}]", v))
                     walk(v, depth + 1)
             elif hasattr(o, "__dict__"):
                 try:
@@ -242,12 +263,20 @@ def main():
                                          weights_only=False))
         if before != after:
             raise SystemExit(f"ERROR: {fn} tensors changed; refusing to write")
-        with open(p, "wb") as f:
-            f.write(buf.getvalue())
-        print(f"  rewritten; tensor digest unchanged ({before[:16]}...)")
-        sums.append((fn, sha256_file(p)))
+        # Stage rather than write: a failure on a later checkpoint would
+        # otherwise leave some files rewritten, none of them checksummed, and
+        # no single command to tell which state the directory is in.
+        staged.append((p, fn, buf.getvalue()))
+        print(f"  verified; staged for write (tensor digest unchanged "
+              f"{before[:16]}...)")
 
     if args.apply:
+        # All checkpoints verified; commit them together, then checksum.
+        for path, fn, blob in staged:
+            with open(path, "wb") as f:
+                f.write(blob)
+            print(f"  wrote {fn}")
+        sums = [(fn, sha256_file(path)) for path, fn, _ in staged]
         with open(os.path.join(WDIR, "SHA256SUMS"), "w", encoding="utf-8",
                   newline="\n") as f:
             for fn, s in sums:
