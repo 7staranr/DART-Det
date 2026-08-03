@@ -33,6 +33,7 @@ authors:
     affiliation: "School of Information Science and Technology, Qingdao University of Science and Technology, Qingdao 266061, China"
   - family-names: Ma
     given-names: Shengjie
+    orcid: "https://orcid.org/0000-0001-7506-8120"
     email: mashengjie@qust.edu.cn
     affiliation: "School of Information Science and Technology, Qingdao University of Science and Technology, Qingdao 266061, China"
 preferred-citation:
@@ -51,3 +52,4 @@ preferred-citation:
       given-names: Jinhan
     - family-names: Ma
       given-names: Shengjie
+      orcid: "https://orcid.org/0000-0001-7506-8120"
