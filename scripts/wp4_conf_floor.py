@@ -34,10 +34,20 @@ def main():
     ap.add_argument("--preds", required=True)
     ap.add_argument("--gt", required=True)
     ap.add_argument("--iou", type=float, default=0.5)
+    ap.add_argument("--allow-missing", action="store_true",
+                    help="proceed when some GT images have no prediction record")
     args = ap.parse_args()
     class_aware = args.dataset == "visdrone"
     gt_data = (we.load_sku_gt(args.gt) if args.dataset == "sku"
                else we.load_visdrone_gt(args.gt))
+
+    # Coverage gate before accumulating: this walks the prediction file, so a
+    # GT image inference skipped would silently leave the n_gt denominator and
+    # inflate every recovery rate below.
+    with open(args.preds, encoding="utf-8") as f:
+        have = {json.loads(line)["image"] for line in f}
+    we.require_coverage(gt_data, have, args.allow_missing,
+                        what="confidence-floor table")
 
     # acc[bucket][floor] = [matched@300, matched@1000, n_gt]
     acc = defaultdict(lambda: defaultdict(lambda: np.zeros(3)))

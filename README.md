@@ -314,7 +314,7 @@ All datasets are public and used under their own licenses; download them into `D
 
 ## Citation
 
-Under review at MDPI *AI*. `CITATION.cff` carries the machine-readable
+Prepared for submission to MDPI *AI*. `CITATION.cff` carries the machine-readable
 metadata (GitHub renders it as "Cite this repository"); the BibTeX below will
 gain volume/pages/DOI on acceptance:
 

@@ -5,7 +5,7 @@ abstract: >-
   Diagnosis-and-repair code for the fixed decode budget of end-to-end, NMS-free
   detectors. Treats the fixed top-K stage as a rate-constrained ranked-selection
   channel, names the loss Rank-Truncation Information Loss (RTIL), decomposes the
-  density-stratified recall drop into a recoverable budget-truncation term, an
+  density-stratified recall drop into a recoverable budget-truncation term, a
   shared-difficulty term that the one-to-many reference path also fails to
   recover at the cached rank depth, and a small residual between the two
   evaluated decode paths, and
@@ -42,7 +42,7 @@ preferred-citation:
   type: manuscript
   title: "DART: Diagnosing and Repairing Rank-Truncation Information Loss in Fixed-Budget End-to-End Detection"
   year: 2026
-  notes: "Manuscript under review; this entry will be updated with the journal reference once the paper is published."
+  notes: "Manuscript prepared for submission to MDPI AI; this entry will be updated with the journal reference once the paper is published."
   authors:
     - family-names: Yang
       given-names: Jixiang

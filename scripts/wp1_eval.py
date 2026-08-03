@@ -203,6 +203,55 @@ def greedy_match(pred_boxes, gt_boxes, iou_thr, pred_cls=None, gt_cls=None):
     return matched_rank, dup_suspect
 
 
+def require_coverage(gt_keys, have_keys, allow_missing, what="analysis",
+                     missing_list_path=None):
+    """Refuse to report headline numbers over a partial prediction cache.
+
+    Every evaluation here walks the predictions, so a ground-truth image that
+    inference skipped (corrupt file, OOM, bad path) would leave the denominator
+    rather than score zero, biasing every rate upward. Returns the sorted list
+    of missing keys; raises unless the caller has explicitly opted in.
+    """
+    missing = sorted(set(gt_keys) - set(have_keys))
+    n_gt, n_have = len(set(gt_keys)), len(set(gt_keys) & set(have_keys))
+    print(f"coverage:  {n_have}/{n_gt} GT images have predictions ({what})")
+    if not missing:
+        return missing
+    head = ", ".join(missing[:10]) + (" ..." if len(missing) > 10 else "")
+    msg = (f"{len(missing)} GT image(s) have no prediction record: {head}\n"
+           f"    Dropping them would inflate every rate reported here. Re-run "
+           f"inference for them, or pass --allow-missing to score them as "
+           f"zero-recall images.")
+    if not allow_missing:
+        raise SystemExit("ERROR: " + msg)
+    print("WARNING: " + msg)
+    if missing_list_path:
+        d = os.path.dirname(missing_list_path)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        with open(missing_list_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(missing) + "\n")
+    return missing
+
+
+def empty_row(img, g, template):
+    """A zero-recall row for an image inference never produced. The scale
+    denominators must still be filled in from the ground truth: leaving them at
+    zero would drop those objects from the scale-stratified rates, which is the
+    very bias this path exists to avoid."""
+    row = {k: 0 for k in template}
+    row["image"] = img
+    row["n_gt"] = len(g["gt"])
+    row["bucket"] = bucket_of(len(g["gt"]))
+    gt = np.asarray(g["gt"], dtype=np.float64).reshape(-1, 4)
+    if len(gt):
+        areas = (gt[:, 2] - gt[:, 0]) * (gt[:, 3] - gt[:, 1])
+        for sz, (lo, hi) in AREA_RANGES.items():
+            row[f"n_gt_{sz}"] = int(((areas >= lo) & (areas < hi)).sum())
+            row[f"matched300_{sz}"] = 0
+    return row
+
+
 def evaluate(gt_data, preds_path, iou_thr=0.5, ignore_mode="deploy",
              class_aware=False):
     per_image = []
@@ -347,35 +396,24 @@ def main():
                          class_aware=args.class_aware)
     print(f"evaluated: {len(per_image)} images")
 
-    # Coverage gate. evaluate() walks the prediction file, so any GT image the
-    # inference pass skipped (corrupt file, OOM, bad path) would silently leave
-    # the denominator instead of counting as a zero-recall image -- which biases
-    # every reported rate upward. Report coverage always, and refuse to emit
-    # headline tables from a partial cache unless the caller opts in.
-    evaluated = {r["image"] for r in per_image}
-    missing = sorted(set(gt_data) - evaluated)
-    print(f"coverage:  {len(evaluated)}/{len(gt_data)} GT images have predictions")
-    if missing:
-        head = ", ".join(missing[:10]) + (" ..." if len(missing) > 10 else "")
-        msg = (f"{len(missing)} GT image(s) have no prediction record: {head}\n"
-               f"    Dropping them would inflate every rate in this table. "
-               f"Re-run inference for them, or pass --allow-missing to score "
-               f"them as zero-recall images.")
-        if not args.allow_missing:
-            raise SystemExit("ERROR: " + msg)
-        print("WARNING: " + msg)
-        with open(args.out_prefix + "_missing_images.txt", "w",
-                  encoding="utf-8") as f:
-            f.write("\n".join(missing) + "\n")
-        for img in missing:
-            g = gt_data[img]
-            row = {k: 0 for k in per_image[0]}
-            row["image"] = img
-            row["n_gt"] = len(g["gt"])
-            row["bucket"] = bucket_of(len(g["gt"]))
-            per_image.append(row)
+    # Create the output directory before anything writes into it: the missing
+    # -image list below lands in the same place.
+    outdir = os.path.dirname(args.out_prefix)
+    if outdir:
+        os.makedirs(outdir, exist_ok=True)
 
-    os.makedirs(os.path.dirname(args.out_prefix), exist_ok=True)
+    if not per_image:
+        raise SystemExit(
+            f"ERROR: no prediction record matched any of the {len(gt_data)} GT "
+            f"images.\n    Check that {args.preds} was produced for this split "
+            f"and that its image keys match the ground-truth keys.")
+
+    missing = require_coverage(gt_data, {r["image"] for r in per_image},
+                               args.allow_missing, what="bucket tables",
+                               missing_list_path=args.out_prefix
+                               + "_missing_images.txt")
+    for img in missing:
+        per_image.append(empty_row(img, gt_data[img], per_image[0]))
     pi_path = args.out_prefix + "_per_image.csv"
     with open(pi_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(per_image[0].keys()))

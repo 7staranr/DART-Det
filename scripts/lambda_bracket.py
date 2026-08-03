@@ -107,7 +107,7 @@ if __name__ == "__main__":
     # which is why the SKU numbers below are a cross-domain check rather than
     # the calibration.
     _need(args.visdrone_preds,
-          "python scripts/wp1_infer.py --weights weights_release/visdrone_yolo26s_1280.pt "
+          "python scripts/wp1_infer.py --model weights_release/visdrone_yolo26s_1280.pt "
           "--images <VisDrone-val images> --imgsz 1280 --out "
           "$DART_ROOT/experiments/wp1_ft/preds_visdrone_ft_s.jsonl")
     vg = we.load_visdrone_gt(args.visdrone_gt)
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     if args.skip_sku:
         raise SystemExit(0)
     _need(args.sku_preds,
-          "python scripts/wp1_infer.py --weights weights_release/sku110k_yolo26n_1024.pt "
+          "python scripts/wp1_infer.py --model weights_release/sku110k_yolo26n_1024.pt "
           "--images <SKU-110K test images> --imgsz 1024 --out "
           "$DART_ROOT/experiments/wp1_sku/preds_sku_test_ft.jsonl")
     sku = we.load_sku_gt(args.sku_gt)

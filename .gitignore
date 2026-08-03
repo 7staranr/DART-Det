@@ -1,7 +1,8 @@
-# Datasets, weights, and run outputs are not tracked -- except the two
-# artifacts the paper says it releases: the density split lists and the
-# per-bucket recall/precision tables the analyses reduce to.  (A child cannot
-# be re-included under an excluded parent, hence `data/*` rather than `data/`.)
+# Datasets, weights, and run outputs are not tracked -- except the artifacts
+# the paper says it releases: the density split lists, the per-bucket tables,
+# and the per-image, per-ground-truth and masking tables the analyses reduce
+# to, plus the three deposited checkpoints.  (A child cannot be re-included
+# under an excluded parent, hence `data/*` rather than `data/`.)
 data/*
 !data/splits/
 results/*

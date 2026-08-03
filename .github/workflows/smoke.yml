@@ -27,7 +27,8 @@ jobs:
         run: |
           if git grep -nEI '([A-Za-z]:\\|/home/[a-z]|/Users/[A-Za-z]|research_ws|YOLO26-NMS-FREE)' \
                -- '*.py' '*.ps1' '*.yaml' '*.yml' '*.md' '*.cff' '*.csv' '*.txt' \
-               ':!THIRD_PARTY_NOTICES.md' ':!.github/workflows/smoke.yml'; then
+               ':!THIRD_PARTY_NOTICES.md' ':!.github/workflows/smoke.yml' \
+               ':!scripts/sanitize_checkpoints.py'; then
             echo "::error::a local path or the pre-release codename is committed"
             exit 1
           fi

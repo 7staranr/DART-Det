@@ -1,13 +1,13 @@
 """Density-adaptive Budget Allocation (DABA): a zero-training
 inference policy, evaluated from cached ranked predictions.
 
-Policies (per image, choose budget k in tiers {300, 600, 1200->1000}):
+Policies (per image, choose budget k in tiers {300, 600, 1000}):
   fixed300   : k = 300 (YOLO26 default)
   fixed1000  : k = 1000 (naive expansion; FP cost shown for contrast)
   oracle     : k by true GT count   (<100 -> 300, <200 -> 600, else 1000)
   selfest    : k by ndet@conf0.10   (<100 -> 300, <200 -> 600, else 1000)
                -- deployable: the count of confident dets is available from
-                  the head output itself at zero extra cost.
+                  the head output itself at no second inference pass (it is read off the already-decoded depth-M ranked list).
 
 Metrics per density bucket: recall, FP/img (ignore-exempt), mean slots used.
 Uses wp1_fppi.per_image_tp_flags (deploy-faithful TP/FP rank flags).

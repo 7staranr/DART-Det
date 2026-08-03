@@ -45,6 +45,8 @@ def decomp(e2e, o2m, sparse, dense, tag):
     budget = d300 - d1000
     path_residual = d1000 - shared
     tot = d300
+    if abs(tot) < 1e-12:
+        print(f"  {tag}: no sparse-to-dense decay to decompose"); return
     print(f"  {tag}")
     print(f"     total R@300 decay          {tot:+.4f}")
     print(f"     budget truncation          {budget:+.4f}  ({budget/tot*100:4.1f}%)")

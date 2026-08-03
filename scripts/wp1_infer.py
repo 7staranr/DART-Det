@@ -1,10 +1,13 @@
-"""WP1 inference runner: cache ranked predictions for offline AR@k analysis.
+"""WP1 inference runner: cache ranked predictions for offline R@k analysis.
 
 Runs a YOLO26 (or any ultralytics) model over a dataset's images once with a
-large max_det and near-zero confidence threshold, then saves ALL ranked
-predictions per image to a .jsonl cache. Because the end-to-end head selects
-top-k by score, AR@300 computed by truncating this cache is identical to
-running inference with max_det=300.
+large max_det and near-zero confidence threshold, then saves the ranked
+predictions per image to a .jsonl cache -- all of them down to that confidence
+floor, which is what "ALL" means here. Because the end-to-end head selects
+top-k by score, R@300 computed by truncating this cache reproduces the ranked
+prefix that running inference at max_det=300 emits, subject to the
+serialization quantization applied below: 0.1 px for coordinates, four decimals
+for confidence.
 
 Usage:
   python wp1_infer.py --model yolo26n.pt --images <dir> --out <preds.jsonl>

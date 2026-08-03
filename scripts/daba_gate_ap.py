@@ -39,6 +39,10 @@ def main():
     ap.add_argument("--iou", type=float, default=0.5)
     ap.add_argument("--nboot", type=int, default=2000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--allow-missing", action="store_true",
+                    help="proceed when some dense GT images have no prediction "
+                         "record; they are excluded and reported, which biases "
+                         "the result upward")
     args = ap.parse_args()
 
     n_classes = 1 if args.dataset == "sku" else (15 if args.dataset == "dota" else 10)
@@ -47,9 +51,12 @@ def main():
                else we.load_visdrone_gt(args.gt))
     preds = ab.load_preds(args.preds)
 
-    dense = [k for k, v in gt_data.items()
-             if len(v["gt"]) >= args.thr_density and k in preds]
-    print(f"dense images (GT>={args.thr_density}, with preds): {len(dense)}")
+    dense_gt = [k for k, v in gt_data.items()
+                if len(v["gt"]) >= args.thr_density]
+    we.require_coverage(dense_gt, preds.keys(), args.allow_missing,
+                        what=f"dense subset, GT>={args.thr_density}")
+    dense = [k for k in dense_gt if k in preds]
+    print(f"dense images (GT>={args.thr_density}): {len(dense)}")
 
     # per-image DABA budget from the density proxy
     kstar, tiers = {}, {}
