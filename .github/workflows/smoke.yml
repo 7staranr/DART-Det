@@ -23,13 +23,16 @@ jobs:
       - name: Every script parses
         run: python -m compileall -q scripts
 
-      - name: No local paths or pre-release codenames in tracked text
+      - name: No known workstation path patterns in tracked text
+        # Same pattern set the checkpoint scanner uses, so the two gates cannot
+        # drift apart: Windows drives, UNC shares, the usual POSIX user and
+        # scratch roots, and the pre-release codename.
         run: |
-          if git grep -nEI '([A-Za-z]:\\|/home/[a-z]|/Users/[A-Za-z]|research_ws|YOLO26-NMS-FREE)' \
+          if git grep -nEI '([A-Za-z]:\\|\\\\\\\\[A-Za-z0-9]|/(home|Users|mnt|media|opt|srv|root|private)/[A-Za-z0-9._-]+/|research_ws|YOLO26-NMS-FREE)' \
                -- '*.py' '*.ps1' '*.yaml' '*.yml' '*.md' '*.cff' '*.csv' '*.txt' \
                ':!THIRD_PARTY_NOTICES.md' ':!.github/workflows/smoke.yml' \
                ':!scripts/sanitize_checkpoints.py'; then
-            echo "::error::a local path or the pre-release codename is committed"
+            echo "::error::a workstation path or the pre-release codename is committed"
             exit 1
           fi
 
@@ -48,5 +51,16 @@ jobs:
         # speak to POSIX paths or to a machine other than the one that trained
         # these. --check exits non-zero if anything remains.
         run: |
+          # The checkpoints pickle Ultralytics model objects, so unpickling
+          # them needs those classes importable -- torch alone would fail on
+          # import before the scan ran, turning a green gate red for the wrong
+          # reason. Pin the same release the results were produced with.
           pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet 'ultralytics==8.4.64'
           python scripts/sanitize_checkpoints.py --check
+          # Belt and braces: the scanner is bounded at depth 8, so also grep the
+          # raw bytes for the drive-letter and codename forms it would miss.
+          if grep -aoE '([A-Za-z]:\\|research_ws|YOLO26-NMS-FREE)' weights_release/*.pt; then
+            echo "::error::checkpoint bytes still contain a workstation path"
+            exit 1
+          fi

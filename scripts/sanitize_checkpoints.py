@@ -114,10 +114,13 @@ def main():
         p = os.path.join(WDIR, fn)
         ck = torch.load(p, map_location="cpu", weights_only=False)
 
-        # Scan the whole object graph, not just the top-level train_args:
+        # Traverse dicts, sequences and object attribute dicts to depth 8.
         # Ultralytics keeps a second copy of the arguments on the model (and
         # EMA) object, and an earlier version of this script checked only the
-        # first, reporting "clean" while `grep` still found paths in the file.
+        # top-level train_args, reporting "clean" while `grep` still found
+        # paths in the file. The depth bound is a cycle/blow-up guard: strings
+        # nested deeper than 8 levels would not be seen, which is why the CI
+        # also greps the raw bytes.
         found = []
         seen = set()
 
@@ -133,20 +136,27 @@ def main():
             elif isinstance(o, (list, tuple)):
                 for i, v in enumerate(o):
                     scan(v, f"{path}[{i}]", depth + 1)
-            else:
-                for attr in ("args", "overrides", "yaml"):
-                    if hasattr(o, attr):
-                        try:
-                            scan(getattr(o, attr), f"{path}.{attr}", depth + 1)
-                        except Exception:
-                            pass
+            elif hasattr(o, "__dict__"):
+                # Real attribute traversal, not three hand-picked names: a
+                # pickled model carries its arguments on itself, and naming
+                # only the attributes we happen to know about is what let a
+                # nested copy survive the first pass.
+                try:
+                    attrs = vars(o)
+                except TypeError:
+                    attrs = {}
+                for k, v in attrs.items():
+                    if leaks(v):
+                        found.append((f"{path}.{k}", v))
+                    scan(v, f"{path}.{k}", depth + 1)
 
         scan(ck, "ckpt")
         print(f"\n{fn}")
         for where, v in found:
             print(f"  {where} = {v!r}")
         if not found:
-            print("  no machine-local paths anywhere in the checkpoint")
+            print("  no machine-local paths found (dicts, sequences and "
+                  "object attributes to depth 8)")
 
         if args.check:
             sums.append((fn, sha256_file(p)))
@@ -161,10 +171,19 @@ def main():
         # finds them. Walk everything reachable instead.
         stem = os.path.splitext(fn)[0]
 
+        unexpected = []
+
         def scrub(d):
             n = 0
             for k, v in list(d.items()):
                 if not leaks(v):
+                    continue
+                if k not in PATH_KEYS and k != "resume":
+                    # Only the declared training-path fields are rewritten. A
+                    # path anywhere else is surfaced rather than silently
+                    # normalized, so the sanitizer's blast radius stays exactly
+                    # as wide as it is documented to be.
+                    unexpected.append((k, v))
                     continue
                 if k in ("model", "weights"):
                     d[k] = BASE.get(fn, os.path.basename(str(v).replace("\\", "/")))
@@ -196,16 +215,25 @@ def main():
             elif isinstance(o, (list, tuple)):
                 for v in o:
                     walk(v, depth + 1)
-            else:
-                for attr in ("args", "overrides", "yaml"):
-                    if hasattr(o, attr):
-                        try:
-                            walk(getattr(o, attr), depth + 1)
-                        except Exception:
-                            pass
+            elif hasattr(o, "__dict__"):
+                try:
+                    attrs = vars(o)
+                except TypeError:
+                    attrs = {}
+                if attrs:
+                    scrubbed += scrub(attrs)
+                for v in attrs.values():
+                    walk(v, depth + 1)
 
         walk(ck)
         print(f"  scrubbed {scrubbed} path field(s) across all copies")
+        if unexpected:
+            for k, v in unexpected:
+                print(f"  NOT rewritten (outside PATH_KEYS): {k} = {v!r}")
+            raise SystemExit(
+                f"ERROR: {len(unexpected)} path-looking value(s) sit outside the "
+                f"declared path fields {PATH_KEYS}. Widen PATH_KEYS deliberately "
+                f"or handle them by hand; this script will not guess.")
 
         buf = io.BytesIO()
         torch.save(ck, buf)

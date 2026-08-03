@@ -21,8 +21,13 @@ KMAX = 1000
 FPPI_LEVELS = [10.0, 50.0, 100.0]
 
 
-def per_image_tp_flags(gt_data, preds_path, iou_thr=0.5):
+def per_image_tp_flags(gt_data, preds_path, iou_thr=0.5, with_ids=False):
     """Returns list of (bucket, n_gt, tp_flags, fp_eligible, n_det) per image.
+
+    With with_ids=True each element is (image_id, row) instead. Callers that
+    need the id must use this rather than rebuilding a parallel list of ids in
+    a second pass: aligning two independently constructed lists by position is
+    how a missing image got silently paired with another image's statistics.
 
     Deploy-faithful protocol (review fix): ALL predictions occupy rank slots;
     predictions whose center falls in an ignore region are exempt from FP
@@ -52,8 +57,8 @@ def per_image_tp_flags(gt_data, preds_path, iou_thr=0.5):
                 ii = we.centers_in_boxes(ctr, g["ignore"])
                 in_ignore[:min(len(ii), KMAX)] = ii[:KMAX]
             fp_eligible = ~tp & ~in_ignore
-            out.append((we.bucket_of(len(gt)), len(gt), tp, fp_eligible,
-                        n_det))
+            row = (we.bucket_of(len(gt)), len(gt), tp, fp_eligible, n_det)
+            out.append((img, row) if with_ids else row)
     return out
 
 

@@ -57,7 +57,7 @@ def main():
     # drop out of recall, FP/img and the realized-budget statistics alike.
     _missing = we.require_coverage(gt_data, _keys, args.allow_missing,
                                    what="DABA budget policy")
-    data = wf.per_image_tp_flags(gt_data, args.preds, args.iou)
+    paired = wf.per_image_tp_flags(gt_data, args.preds, args.iou, with_ids=True)
 
     # need ndet@conf0.1 per image for the self-estimating policy
     conf01 = {}
@@ -66,28 +66,15 @@ def main():
             rec = json.loads(line)
             arr = np.array(rec["boxes"], dtype=np.float32).reshape(-1, 6)
             conf01[rec["image"]] = int((arr[:, 4] >= 0.10).sum())
-    # Bind each row to its image id instead of rebuilding a parallel list and
-    # trusting the two to stay in step: they did not. per_image_tp_flags walks
-    # the cache in file order and keeps records whose image is in gt_data, so
-    # that is the order reproduced here, and the pairing is asserted rather
-    # than assumed.
-    rows = []
-    with open(args.preds, "r", encoding="utf-8") as f:
-        for line in f:
-            rec = json.loads(line)
-            if rec["image"] in gt_data:
-                rows.append(rec["image"])
-    if len(rows) != len(data):
-        raise SystemExit(
-            f"ERROR: {len(data)} per-image rows but {len(rows)} image ids; "
-            f"the cache changed under us or the two passes disagree.")
-    paired = list(zip(rows, data))
+    # `paired` comes back as (image_id, row) from per_image_tp_flags itself,
+    # so there is no second pass to keep in step. An earlier revision built the
+    # ids separately and zip()ed them, which silently dropped every appended
+    # row; checking the two lengths afterwards would still not have caught a
+    # reorder, only a truncation.
 
     # A GT image with no cache record produces no row above, so add it here as
     # an empty prediction: no TPs, nothing FP-eligible, zero detections, but its
-    # ground truth still counted in the bucket. Appending to `data` alone (as an
-    # earlier revision did) was useless, because zip() against a shorter id list
-    # silently dropped it again.
+    # ground truth still counted in the bucket.
     for _img in _missing:
         _g = gt_data[_img]
         paired.append((_img, (we.bucket_of(len(_g["gt"])), len(_g["gt"]),
