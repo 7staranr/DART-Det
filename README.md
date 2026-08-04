@@ -220,7 +220,8 @@ Seven scripts share one interface -- `wp1_eval.py`, `wp1_fppi.py`,
 `wp4_conf_floor.py` and `daba_gate_ap.py` -- taking `--dataset`, `--gt`
 (ground-truth labels) and `--preds` (the cached prediction JSONL).
 `lambda_bracket.py` takes per-split paths instead and `recoverability_table.py`
-takes no arguments at all. Run any script with `--help` for its full options.
+takes no arguments at all. Run any argument-taking script with `--help` for
+its full options.
 
 ## Reproducing the paper
 

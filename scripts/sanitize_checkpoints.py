@@ -12,8 +12,12 @@ This rewrites only those metadata strings. The check it performs is exactly
 this: the tensors reachable through containers and state_dict() -- which is
 where the weights and the EMA buffers live -- are digested before and after by
 dtype, shape and raw bytes, and the write is refused if the digests differ.
-That covers no weight or EMA buffer changing; it is not a digest of literally
-every tensor in the pickle. It does not by itself prove that non-tensor metadata other
+That verifies the numerical values, dtypes and shapes of the traversed weight
+and EMA tensors are unchanged. It is not a digest of literally every tensor in
+the pickle, and device placement, strides and storage aliasing are outside its
+scope -- the load itself uses map_location="cpu", so device tags would not
+survive to be compared anyway. The three released checkpoints were already CPU
+tensors. It does not by itself prove that non-tensor metadata other
 than the path fields is untouched -- for that, rely on scrub() only ever
 assigning to keys whose current value satisfies leaks().
 
@@ -104,12 +108,16 @@ def leaks(value):
     """Does this string look like a path on the machine that trained the model?"""
     if not isinstance(value, str) or not value.strip():
         return False
-    low = value.lower()
+    low = value.strip().lower()
     win = low.replace("/", "\\")
     if "\\" in win and len(win) > 2 and win[1] == ":":       # C:\... , E:/...
         return True
-    if any(low.startswith(r) or ("/" + r.strip("/") + "/") in low
-           for r in _POSIX_ROOTS):                            # /home/alice/...
+    # Anchored at the start, not a substring: './data/splits/x.txt' contains
+    # '/data/' but is a repository-relative path, and rewriting it to a
+    # basename would corrupt a legitimate field. This mirrors the anchoring the
+    # smoke text gate uses.
+    norm = low.replace("\\", "/")
+    if any(norm.startswith(r) for r in _POSIX_ROOTS):          # /home/alice/...
         return True
     if low.startswith("\\\\"):                                # UNC share
         return True

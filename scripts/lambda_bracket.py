@@ -1,7 +1,7 @@
 """De-circularize the DABA cost model: from cached predictions, measure the
 marginal recovered objects per budget step as a function of the density proxy
-n(x), then show which cost-ratio lambda=c_s/c_m bracket makes the three-way
-crossover thresholds are consistent with the deployed (t1,t2)=(100,200).
+n(x), then report the span of the two step-specific cost ratios lambda=c_s/c_m
+implied by the deployed crossover thresholds (t1,t2)=(100,200).
 
 The two expansion steps yield their own implied cost ratio, so what the output
 reports is the span of those two step-specific values -- not a demonstration
@@ -20,7 +20,17 @@ import wp4_ap_bootstrap as ab
 
 
 def per_image(preds, gt, ca=False):
-    """return list of (n_proxy, matched@300, matched@600, matched@1000)."""
+    """return list of (n_proxy, matched@300, matched@600, matched@1000, depth).
+
+    depth is the cached list length, needed to divide by the slots a budget step
+    actually adds rather than by its nominal width.
+
+    Images with no ground truth are excluded: the recovery numerator is
+    undefined for them. Both released splits have none (0 of 548 on
+    VisDrone-val, 0 of 2935 on SKU-110K test), so this conditions on nothing
+    here; it is stated because on a split that did contain them the reported
+    averages would be conditional on having at least one object.
+    """
     rows = []
     for img, g in gt.items():
         if len(g["gt"]) == 0:
@@ -37,7 +47,7 @@ def per_image(preds, gt, ca=False):
         if len(p) == 0:
             # A legitimate empty prediction: proxy 0, nothing recovered at any
             # budget. It belongs in the low-density bin, not outside the data.
-            rows.append((0, 0, 0, 0))
+            rows.append((0, 0, 0, 0, 0.0))
             continue
         n = int((p[:, 4] >= 0.1).sum())               # density proxy
         m = {}
@@ -47,7 +57,7 @@ def per_image(preds, gt, ca=False):
                                     pred_cls=(pk[:, 5].astype(int) if ca else None),
                                     gt_cls=(g["gt_cls"] if ca else None))
             m[k] = int((mr >= 0).sum())
-        rows.append((n, m[300], m[600], m[1000]))
+        rows.append((n, m[300], m[600], m[1000], float(len(p))))
     return rows
 
 
@@ -60,8 +70,17 @@ def analyze(rows, monotone=None):
     n = rows[:, 0]
     d1 = rows[:, 2] - rows[:, 1]   # recovered objects 300->600 (per image)
     d2 = rows[:, 3] - rows[:, 2]   # recovered objects 600->1000
-    # marginal recovered per added slot
-    s1, s2 = d1 / 300.0, d2 / 400.0
+    # Per *effective* added slot, not per nominal budget increment: an image
+    # whose cache stops at 450 gains 150 returnable slots from a 300->600 step,
+    # not 300, and dividing by the nominal width would understate its value.
+    # Measured on the released per-image tables, the two agree to five decimals
+    # in every proxy bin at or above the deployed thresholds (caches are deep
+    # where density is high) and differ only in the sparsest bin, so this does
+    # not move the reported crossovers -- it makes the divisor match the label.
+    depth = rows[:, 4]
+    e1 = np.maximum(np.minimum(depth, 600) - np.minimum(depth, 300), 1.0)
+    e2 = np.maximum(np.minimum(depth, 1000) - np.minimum(depth, 600), 1.0)
+    s1, s2 = d1 / e1, d2 / e2
     # bin by proxy n, report mean marginal value per slot
     edges = [0, 50, 100, 150, 200, 300, 100000]
     print(f"{'proxy n bin':>12} {'#img':>5} {'rec/slot 300>600':>17} {'rec/slot 600>1000':>18}")
@@ -168,4 +187,7 @@ if __name__ == "__main__":
     sku = we.load_sku_gt(args.sku_gt)
     p = ab.load_preds(args.sku_preds)
     print("=== SKU-110K test (cross-domain check; profile is NON-monotone here) ===")
-    analyze(per_image(p, sku, ca=False), monotone=False)
+    # No monotone= override: the module promises the check comes from the
+    # data, and hard-coding False here would contradict that the moment someone
+    # passes a different cache through --sku-preds.
+    analyze(per_image(p, sku, ca=False))

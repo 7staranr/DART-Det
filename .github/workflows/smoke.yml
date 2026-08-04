@@ -57,6 +57,7 @@ jobs:
           # reason. Pin the same release the results were produced with.
           pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
           pip install --quiet 'ultralytics==8.4.64'
+          python tests/test_path_leaks.py
           python scripts/sanitize_checkpoints.py --check
           # Belt and braces: the scanner is bounded at depth 8, so also grep the
           # raw bytes for the drive-letter and codename forms it would miss.
