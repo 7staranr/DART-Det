@@ -16,8 +16,8 @@ That verifies the numerical values, dtypes and shapes of the traversed weight
 and EMA tensors are unchanged. It is not a digest of literally every tensor in
 the pickle, and device placement, strides and storage aliasing are outside its
 scope -- the load itself uses map_location="cpu", so device tags would not
-survive to be compared anyway. The three released checkpoints were already CPU
-tensors. It does not by itself prove that non-tensor metadata other
+survive to be compared anyway, and this digest therefore cannot be cited as
+evidence about the originals' device placement. It does not by itself prove that non-tensor metadata other
 than the path fields is untouched -- for that, rely on scrub() only ever
 assigning to keys whose current value satisfies leaks().
 
@@ -114,12 +114,18 @@ def leaks(value):
         return True
     # Anchored at the start, not a substring: './data/splits/x.txt' contains
     # '/data/' but is a repository-relative path, and rewriting it to a
-    # basename would corrupt a legitimate field. This mirrors the anchoring the
-    # smoke text gate uses.
+    # basename would corrupt a legitimate field.
     norm = low.replace("\\", "/")
+    if norm.startswith("//"):
+        # UNC in either slash direction. Collapse the doubling and retry as a
+        # POSIX root too, since '//home/alice' is the same place as '/home/...'
+        # and previously matched neither branch.
+        if not norm.startswith("///"):
+            rest = norm[2:]
+            if rest and "/" in rest:
+                return True
+        norm = "/" + norm.lstrip("/")
     if any(norm.startswith(r) for r in _POSIX_ROOTS):          # /home/alice/...
-        return True
-    if low.startswith("\\\\"):                                # UNC share
         return True
     return "research_ws" in low or "yolo26-nms-free" in low
 

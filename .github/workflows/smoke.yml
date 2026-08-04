@@ -24,14 +24,26 @@ jobs:
         run: python -m compileall -q scripts
 
       - name: No known workstation path patterns in tracked text
-        # Same pattern set the checkpoint scanner uses, so the two gates cannot
-        # drift apart: Windows drives, UNC shares, the usual POSIX user and
-        # scratch roots, and the pre-release codename.
+        # This is a separate implementation from leaks() in
+        # sanitize_checkpoints.py -- one is an ERE, the other Python -- so the
+        # two cannot share code and will drift unless something checks them
+        # together. tests/test_path_leaks.py runs both against
+        # tests/path_leak_corpus.py and fails when they disagree; it caught
+        # this branch missing forward-slash drives and forward-slash UNC.
+        # The '//' alternative excludes a preceding ':' so https:// URLs, which
+        # appear in the README and in this file, are not read as UNC shares.
+        # The UNC branch requires a second separator ("\\server\share"), so a
+        # LaTeX escape in a matplotlib label ("$\\geq$300") is not read as a
+        # share. A line that legitimately shows a path -- the README's
+        # placeholder for the reader's own DART_ROOT -- carries the marker
+        # "path-gate: ok" and is filtered out; the three files whose subject
+        # matter is these patterns are excluded by pathspec.
         run: |
-          if git grep -nEIi '([A-Za-z]:\\|\\\\[A-Za-z0-9]|(^|[^.[:alnum:]_])/(home|users|mnt|media|opt|srv|var|root|tmp|private|data)/[A-Za-z0-9._-]+/|research_ws|yolo26-nms-free)' \
+          if git grep -nEIi '((^|[^[:alnum:]])[A-Za-z]:[\\/]|\\\\[A-Za-z0-9._-]+[\\/]|(^|[^:[:alnum:]])//[A-Za-z0-9]|(^|[^.[:alnum:]_])/(home|users|mnt|media|opt|srv|var|root|tmp|private|data)/[A-Za-z0-9._-]+/|research_ws|yolo26-nms-free)' \
                -- '*.py' '*.ps1' '*.yaml' '*.yml' '*.md' '*.cff' '*.csv' '*.txt' \
                ':!THIRD_PARTY_NOTICES.md' ':!.github/workflows/smoke.yml' \
-               ':!scripts/sanitize_checkpoints.py'; then
+               ':!scripts/sanitize_checkpoints.py' ':!tests/path_leak_corpus.py' \
+               ':!tests/test_path_leaks.py' | grep -v 'path-gate: ok'; then
             echo "::error::a workstation path or the pre-release codename is committed"
             exit 1
           fi

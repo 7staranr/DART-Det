@@ -25,8 +25,10 @@ def per_image(preds, gt, ca=False):
     depth is the cached list length, needed to divide by the slots a budget step
     actually adds rather than by its nominal width.
 
-    Images with no ground truth are excluded: the recovery numerator is
-    undefined for them. Both released splits have none (0 of 548 on
+    The analysis is intentionally conditioned on images containing at least
+    one ground-truth object. The matched-count increment is perfectly well
+    defined for a zero-GT image (it is zero); what such an image cannot carry
+    is a recovery rate. Both released splits have none (0 of 548 on
     VisDrone-val, 0 of 2935 on SKU-110K test), so this conditions on nothing
     here; it is stated because on a split that did contain them the reported
     averages would be conditional on having at least one object.
@@ -78,9 +80,14 @@ def analyze(rows, monotone=None):
     # where density is high) and differ only in the sparsest bin, so this does
     # not move the reported crossovers -- it makes the divisor match the label.
     depth = rows[:, 4]
-    e1 = np.maximum(np.minimum(depth, 600) - np.minimum(depth, 300), 1.0)
-    e2 = np.maximum(np.minimum(depth, 1000) - np.minimum(depth, 600), 1.0)
-    s1, s2 = d1 / e1, d2 / e2
+    e1 = np.minimum(depth, 600) - np.minimum(depth, 300)
+    e2 = np.minimum(depth, 1000) - np.minimum(depth, 600)
+    # An image whose cache adds no slots at a step has no per-slot value to
+    # report; clamping its divisor to 1 would call that zero-per-slot and fold
+    # it into the mean. Mask it out of that step instead, and say how many.
+    ok1, ok2 = e1 > 0, e2 > 0
+    s1 = np.divide(d1, e1, out=np.zeros_like(d1), where=ok1)
+    s2 = np.divide(d2, e2, out=np.zeros_like(d2), where=ok2)
     # bin by proxy n, report mean marginal value per slot
     edges = [0, 50, 100, 150, 200, 300, 100000]
     print(f"{'proxy n bin':>12} {'#img':>5} {'rec/slot 300>600':>17} {'rec/slot 600>1000':>18}")
@@ -89,9 +96,16 @@ def analyze(rows, monotone=None):
         msk = (n >= lo) & (n < hi)
         if msk.sum() == 0:
             continue
-        v1, v2 = s1[msk].mean(), s2[msk].mean()
+        m1, m2 = msk & ok1, msk & ok2
+        if m1.sum() == 0 or m2.sum() == 0:
+            print(f"{f'[{lo},{hi})':>12} {int(msk.sum()):>5}   "
+                  f"no image adds slots at one of the steps; bin skipped")
+            continue
+        v1, v2 = s1[m1].mean(), s2[m2].mean()
         binvals.append((lo, hi, msk.sum(), v1, v2))
-        print(f"{f'[{lo},{hi})':>12} {int(msk.sum()):>5} {v1:>17.5f} {v2:>18.5f}")
+        drop = int(msk.sum() - min(m1.sum(), m2.sum()))
+        print(f"{f'[{lo},{hi})':>12} {int(msk.sum()):>5} {v1:>17.5f} {v2:>18.5f}"
+              + (f"   ({drop} image(s) add no slots at a step)" if drop else ""))
     # crossover: DABA expands 300->600 when rec/slot(300>600) > lambda; the
     # threshold t1 is the proxy n where the per-slot value crosses lambda.
     # Find lambda such that crossover occurs near n=100 (t1) and n=200 (t2).
@@ -100,7 +114,21 @@ def analyze(rows, monotone=None):
     a1 = np.array([v for *_, v, _ in binvals])
     a2 = np.array([v for *_, _, v in binvals])
 
+    if len(binvals) < 2:
+        print("insufficient density support: fewer than two usable proxy bins, "
+              "so no crossover can be read. No conclusion drawn.")
+        return
+
     def val_at(nq, mids, arr):
+        # np.interp clamps outside the observed range instead of failing, which
+        # would report an endpoint value as if it were an interpolated
+        # crossover. Refuse rather than clamp.
+        if not (mids.min() <= nq <= mids.max()):
+            raise SystemExit(
+                f"ERROR: threshold {nq:g} lies outside the observed density "
+                f"range [{mids.min():g}, {mids.max():g}]. Interpolating would "
+                f"silently return an endpoint value; this split does not "
+                f"support reading a crossover there.")
         return float(np.interp(nq, mids, arr))
     lam_t1 = val_at(100, mids, a1)   # lambda that puts the 300->600 crossover at n=100
     lam_t2 = val_at(200, mids, a2)   # lambda that puts the 600->1000 crossover at n=200

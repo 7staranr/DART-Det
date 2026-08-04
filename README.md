@@ -16,7 +16,7 @@ Set the workspace root once (defaults to the repository directory):
 
 ```
 export DART_ROOT=/path/to/workspace     # bash
-$env:DART_ROOT = "C:\path\to\workspace" # PowerShell
+$env:DART_ROOT = "C:\path\to\workspace" # PowerShell   (path-gate: ok)
 ```
 
 Scripts read `DART_ROOT/data`, write finetunes to `DART_ROOT/runs`, and write cached predictions and analysis to `DART_ROOT/experiments`.
