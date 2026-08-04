@@ -215,9 +215,12 @@ recovered recall:
 python scripts/wp4_budget_policy.py --dataset sku --gt <SKU110K_fixed/annotations/annotations_test.csv> --preds <preds.jsonl>
 ```
 
-The cache-consuming evaluation scripts share one interface: `--dataset`,
-`--gt` (ground-truth labels), and `--preds` (the cached prediction JSONL). Run
-any script with `--help` for its full options.
+Seven scripts share one interface -- `wp1_eval.py`, `wp1_fppi.py`,
+`wp1_slot_occupant.py`, `wp4_budget_policy.py`, `wp4_ap_bootstrap.py`,
+`wp4_conf_floor.py` and `daba_gate_ap.py` -- taking `--dataset`, `--gt`
+(ground-truth labels) and `--preds` (the cached prediction JSONL).
+`lambda_bracket.py` takes per-split paths instead and `recoverability_table.py`
+takes no arguments at all. Run any script with `--help` for its full options.
 
 ## Reproducing the paper
 

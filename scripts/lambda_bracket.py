@@ -1,7 +1,13 @@
 """De-circularize the DABA cost model: from cached predictions, measure the
 marginal recovered objects per budget step as a function of the density proxy
 n(x), then show which cost-ratio lambda=c_s/c_m bracket makes the three-way
-crossover thresholds equal the deployed (t1,t2)=(100,200). Re-analysis only."""
+crossover thresholds are consistent with the deployed (t1,t2)=(100,200).
+
+The two expansion steps yield their own implied cost ratio, so what the output
+reports is the span of those two step-specific values -- not a demonstration
+that one lambda inside that span derives both thresholds. The single-crossover
+reading needs a non-decreasing marginal profile; monotonicity is checked from
+the data rather than asserted by the caller. Re-analysis only."""
 import os
 import sys
 
@@ -45,7 +51,11 @@ def per_image(preds, gt, ca=False):
     return rows
 
 
-def analyze(rows, monotone=True):
+def analyze(rows, monotone=None):
+    """monotone=None checks the profile from the data; pass a bool only to
+    override. An earlier revision took the caller's word for it, so feeding in
+    a different cache through the CLI would still have printed the bracketing
+    conclusion on a profile that does not support it."""
     rows = np.array(rows, float)
     n = rows[:, 0]
     d1 = rows[:, 2] - rows[:, 1]   # recovered objects 300->600 (per image)
@@ -77,6 +87,12 @@ def analyze(rows, monotone=True):
     lam_t2 = val_at(200, mids, a2)   # lambda that puts the 600->1000 crossover at n=200
     print(f"\nImplied cost ratio lambda for t1=100 (300->600 step): {lam_t1:.5f}")
     print(f"Implied cost ratio lambda for t2=200 (600->1000 step): {lam_t2:.5f}")
+    if monotone is None:
+        # Non-decreasing in the density proxy, on both step curves.
+        monotone = (all(a1[i] <= a1[i + 1] + 1e-12 for i in range(len(a1) - 1))
+                    and all(a2[i] <= a2[i + 1] + 1e-12 for i in range(len(a2) - 1)))
+        print(f"marginal profile is "
+              f"{'monotone' if monotone else 'NOT monotone'} (checked from the data)")
     if not monotone:
         # The single-crossover reading of the cost model needs a non-decreasing
         # marginal profile. Where it does not hold, the two interpolated values
@@ -89,9 +105,11 @@ def analyze(rows, monotone=True):
     # The two steps interpolate to different values, so what this shows is that
     # one low cost ratio is *consistent with* both deployed edges, not that a
     # single lambda derives them.
-    print(f"=> the deployed (100,200) is bracketed by lambda in "
-          f"[{min(lam_t1,lam_t2):.5f}, {max(lam_t1,lam_t2):.5f}]; both ends are "
-          f"small, i.e. slot cost << miss cost.")
+    print(f"=> the two step-specific implied cost ratios span "
+          f"[{min(lam_t1,lam_t2):.5f}, {max(lam_t1,lam_t2):.5f}], which is "
+          f"consistent with the deployed (100,200); both ends are small, i.e. "
+          f"slot cost << miss cost. This does not show that one lambda inside "
+          f"that span derives both thresholds.")
 
 
 def _need(path, how):
@@ -133,6 +151,9 @@ if __name__ == "__main__":
           "--images <VisDrone-val images> --imgsz 1280 --out "
           "$DART_ROOT/experiments/wp1_ft/preds_visdrone_ft_s.jsonl")
     vg = we.load_visdrone_gt(args.visdrone_gt)
+    # ab.load_preds runs the shared reject_duplicate_keys gate before it
+    # collapses the records into a dict, so a duplicated image key fails here
+    # too rather than silently last-write-wins.
     vp = ab.load_preds(args.visdrone_preds)
     print("=== VisDrone-val, YOLO26-s (CALIBRATION split) ===")
     analyze(per_image(vp, vg, ca=True))

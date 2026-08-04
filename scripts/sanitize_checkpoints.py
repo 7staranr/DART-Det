@@ -9,9 +9,11 @@ useless to anyone else -- they point at directories that do not exist on their
 machine -- and they publish the author's local layout.
 
 This rewrites only those metadata strings. The check it performs is exactly
-this: every tensor reachable in the checkpoint is digested before and after,
-and the write is refused if the digests differ. That proves no weight or EMA
-buffer changed. It does not by itself prove that non-tensor metadata other
+this: the tensors reachable through containers and state_dict() -- which is
+where the weights and the EMA buffers live -- are digested before and after by
+dtype, shape and raw bytes, and the write is refused if the digests differ.
+That covers no weight or EMA buffer changing; it is not a digest of literally
+every tensor in the pickle. It does not by itself prove that non-tensor metadata other
 than the path fields is untouched -- for that, rely on scrub() only ever
 assigning to keys whose current value satisfies leaks().
 
@@ -64,7 +66,11 @@ def tensor_digest(obj):
 
     def walk(o, path=""):
         if torch.is_tensor(o):
+            # dtype and shape as well as bytes: identical bytes under a changed
+            # dtype or shape would otherwise digest the same.
             h.update(path.encode())
+            h.update(str(o.dtype).encode())
+            h.update(str(tuple(o.shape)).encode())
             h.update(o.detach().cpu().contiguous().numpy().tobytes())
         elif isinstance(o, dict):
             for k in sorted(o, key=str):
@@ -263,18 +269,27 @@ def main():
                                          weights_only=False))
         if before != after:
             raise SystemExit(f"ERROR: {fn} tensors changed; refusing to write")
-        # Stage rather than write: a failure on a later checkpoint would
-        # otherwise leave some files rewritten, none of them checksummed, and
-        # no single command to tell which state the directory is in.
+        # Stage rather than write, so validation of every checkpoint happens
+        # before any file is overwritten. This is not an atomic multi-file
+        # commit: the writes below still happen one at a time, and a crash or
+        # a full disk midway would leave earlier files replaced. Each single
+        # file is replaced atomically via os.replace, so no file is ever left
+        # half-written.
         staged.append((p, fn, buf.getvalue()))
         print(f"  verified; staged for write (tensor digest unchanged "
               f"{before[:16]}...)")
 
     if args.apply:
-        # All checkpoints verified; commit them together, then checksum.
+        # All checkpoints verified. Write each through a temporary file in the
+        # same directory and os.replace it into place, so an interrupted write
+        # cannot leave a truncated checkpoint behind.
         for path, fn, blob in staged:
-            with open(path, "wb") as f:
+            tmp = path + ".tmp"
+            with open(tmp, "wb") as f:
                 f.write(blob)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
             print(f"  wrote {fn}")
         sums = [(fn, sha256_file(path)) for path, fn, _ in staged]
         with open(os.path.join(WDIR, "SHA256SUMS"), "w", encoding="utf-8",

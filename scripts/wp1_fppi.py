@@ -6,7 +6,9 @@ pooled false positives per image (FPPI) crosses {10, 50, 100}, plus recall and
 FPPI at k=300 and k=1000 for reference.
 
 A prediction is a TP if it greedy-matches an unmatched GT at IoU>=thr (ranked
-by confidence); else FP (ignore-region preds dropped beforehand).
+by confidence). Predictions falling in an ignore region still consume their
+rank slot but are exempt from the FP count -- they are not dropped beforehand,
+which would understate how full the budget is. Everything else counts as FP.
 
 Usage: python wp1_fppi.py --dataset visdrone --gt <dir> --preds <jsonl>
 """
