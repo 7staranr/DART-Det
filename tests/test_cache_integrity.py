@@ -151,6 +151,24 @@ def main():
         check("budget policy scores the missing image rather than dropping it",
               recalls == ["0.1667"], f"printed recalls: {recalls}")
 
+        # 8. the duplicate-key guard lives inside the shared loader, so scripts
+        #    that only call ab.load_preds() inherit it. That is a cross-module
+        #    guarantee which a comment at the call site cannot demonstrate;
+        #    exercise the loader itself so it cannot be removed unnoticed.
+        ann, preds = make_split(tmp, with_b=True, duplicate_a=True)
+        r = subprocess.run(
+            [sys.executable, "-c",
+             "import sys; sys.path.insert(0, r'" + os.path.join(ROOT, "scripts")
+             + "');\n"
+             "import wp4_ap_bootstrap as ab\n"
+             "ab.load_preds(r'" + preds.replace("\\", "\\\\") + "')\n"
+             "print('loaded without complaint')"],
+            capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        check("ab.load_preds rejects duplicate keys",
+              r.returncode != 0 and "duplicate" in out.lower(),
+              f"exit={r.returncode} out={out[-200:]}")
+
     print(f"\n{len(FAILURES)} failure(s)" if FAILURES else "\nall guards hold")
     return 1 if FAILURES else 0
 
